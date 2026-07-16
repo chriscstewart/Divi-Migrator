@@ -1,0 +1,145 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "divi-migrator"
+version = "0.1.0"
+description = "WordPress Avada/Elementor/Plain HTML to Divi 5 migration framework"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Chris", email = "chris@example.com"}
+]
+maintainers = [
+    {name = "Chris", email = "chris@example.com"}
+]
+keywords = [
+    "wordpress",
+    "divi",
+    "divi5",
+    "migration",
+    "avada",
+    "fusion-builder",
+    "elementor",
+    "wp-rest-api"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pyyaml>=6.0",
+    "rich>=13.0.0",
+    "typer>=0.9.0",
+    "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.6.0",
+    "types-requests>=2.31.0",
+    "types-PyYAML>=6.0.12",
+]
+docs = [
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/chriscstewart/Divi-Migrator"
+Repository = "https://github.com/chriscstewart/Divi-Migrator"
+Issues = "https://github.com/chriscstewart/Divi-Migrator/issues"
+Documentation = "https://chriscstewart.github.io/Divi-Migrator/"
+
+[project.scripts]
+divi-migrate = "divi_migrator.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/divi_migrator"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/README.md",
+    "/LICENSE",
+    "/src",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "C", "N", "UP", "B", "A", "C4", "DTZ", "T10", "T20", "ICN", "PIE", "PT", "Q", "RET", "SIM", "SLF", "TRY", "ARG", "PTH", "ERA", "PL", "NPY", "B007", "B008", "B009", "B011", "B015",
+]
+ignore = []
+per-file-ignores = { "tests/*" = ["S101", "S106"] }
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict = true
+explicit_package_bases = true
+show_error_codes = true
+pretty = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src/divi_migrator"]
+omit = ["tests/*", "*/conftest.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.hatch.envs.default]
+dependencies = [
+    "requests>=2.31.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "pyyaml>=6.0",
+    "rich>=13.0.0",
+    "typer>=0.9.0",
+    "tenacity>=8.2.0",
+]

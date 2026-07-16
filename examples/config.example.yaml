@@ -1,0 +1,34 @@
+# Example configuration file
+
+wp:
+  url: "https://yoursite.com"
+  user: "migration-bot"
+  app_password: "${WP_APP_PASSWORD}"
+  ssl_verify: true
+  timeout: 30
+
+diviops:
+  url: "https://yoursite.com"  # same as WP if DiviOps on same site
+
+migration:
+  rate_limit: 2.0
+  batch_size: 50
+  checkpoint_dir: "./checkpoints"
+  max_retries: 3
+  timeout: 30
+  max_content_length: 10000000
+  post_type: "page"  # page or post
+
+verification:
+  require_sections: true
+  require_images: false
+  require_buttons: false
+  primary_color_token: "gcid-primary-color"
+  default_section_bg: "#f7f4ef"
+
+design_system:
+  fetch_on_start: true
+  cache_ttl: 3600
+  fallback_to_defaults: true
+  primary_color_override: null
+  section_bg_override: null
