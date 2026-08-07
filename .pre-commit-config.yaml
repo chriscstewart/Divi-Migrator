@@ -1,0 +1,19 @@
+# Pre-commit hooks for Divi Migrator.
+#
+# Install once (per clone):  pre-commit install
+#
+# The only committed hook is a self-contained secret scanner (no external
+# binaries required). It blocks commits that reintroduce credentials into
+# tracked files. Secrets belong in the git-ignored `.env` / environment.
+
+repos:
+  - repo: local
+    hooks:
+      - id: check-secrets
+        name: Check for accidentally-committed secrets
+        entry: python scripts/check_secrets.py
+        language: system
+        types: [file]
+        # .env.example intentionally contains placeholder secrets; the scanner
+        # script itself and its baseline are obviously exempt.
+        exclude: '^(\.env\.example|scripts/check_secrets\.py|\.secrets\.baseline\.json)$'

@@ -1,0 +1,49 @@
+# Divi Migrator configuration (NON-SECRET settings only).
+#
+# Secrets (WP / DiviOps username + application password) are NEVER stored
+# here. They are supplied via environment variables or a local, git-ignored
+# `.env` file (see `.env.example` for the template). Before committing,
+# confirm no secret value appears in this file. This file is committed so the
+# framework has sane per-deployment defaults; only credentials stay local.
+
+wp:
+  url: "https://www.helenzee.com/2026"
+  ssl_verify: true
+  timeout: 60
+
+diviops:
+  url: "https://www.helenzee.com/2026"
+  timeout: 90
+
+migration:
+  # rate_limit is REQUESTS PER SECOND across ALL clients (WP + DiviOps share
+  # one bucket). 0.33 ≈ 1 request every ~3s. For cheap shared hosting, keep
+  # this low. min_delay is a hard floor between any two requests.
+  rate_limit: 0.33
+  min_delay: 2.0
+  batch_size: 50
+  checkpoint_dir: "./checkpoints"
+  max_retries: 5
+  timeout: 60
+  max_content_length: 10000000
+  post_type: "page"
+
+verification:
+  require_sections: true
+  require_images: false
+  require_buttons: false
+  primary_color_token: "gcid-primary-color"
+  default_section_bg: "#f7f4ef"
+
+design_system:
+  fetch_on_start: true
+  cache_ttl: 3600
+  fallback_to_defaults: true
+  primary_color_override: null
+  section_bg_override: null
+
+audit:
+  backup_dir: "./audit_backups"
+  wp_option_key: "divi_migrator_audit"
+  auto_backup: true
+  max_backups: 10

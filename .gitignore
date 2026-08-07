@@ -42,8 +42,14 @@ checkpoints/
 .DS_Store
 Thumbs.db
 
-# Environment
+# Secrets (NEVER commit real credentials; .env is git-ignored)
 .env
 .env.local
-# Credentials / local config (contains live WP app passwords)
-config.yaml
+
+# Committed, non-secret config + templates
+# config.yaml            <- committed (no secrets)
+# .env.example          <- committed (placeholders only)
+# NOTE: never put a real app_password into config.yaml or .env.example.
+
+# Pre-commit baseline (if you later adopt trufflehog/git-secrets)
+.secrets.baseline.json
