@@ -24,7 +24,7 @@ class WPSettings(BaseSettings):
     user: str = Field(..., description="WP REST API username")
     app_password: str = Field(default="", description="Application password")
     ssl_verify: bool = Field(True, description="Verify SSL certificates")
-    timeout: int = Field(30, description="Request timeout in seconds")
+    timeout: int = Field(60, description="Request timeout in seconds (raise for slow hosting)")
 
 
 class DiviOpsSettings(BaseSettings):
@@ -35,7 +35,7 @@ class DiviOpsSettings(BaseSettings):
     url: str | None = Field(None, description="DiviOps endpoint (defaults to WP_URL)")
     user: str | None = Field(None, description="DiviOps WP REST API username")
     app_password: str | None = Field(None, description="DiviOps application password (no spaces)")
-    timeout: int = Field(60, description="Request timeout in seconds")
+    timeout: int = Field(90, description="Request timeout in seconds (raise for slow hosting)")
 
 
 class MigrationSettings(BaseSettings):
@@ -43,11 +43,17 @@ class MigrationSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="MIGRATION_")
 
-    rate_limit: float = Field(0.5, description="Seconds between requests (0.5 = 2 req/sec)")
+    # rate_limit is REQUESTS PER SECOND (token-bucket). For cheap shared
+    # hosting, keep this low: 0.33 ≈ 1 request every 3 seconds. The token
+    # bucket is shared by BOTH the WP client and the DiviOps client so all
+    # traffic to the site is throttled together. A 'min_delay' floor is
+    # applied on top so two calls can never fire closer than min_delay apart.
+    rate_limit: float = Field(0.33, description="Requests/sec for WP+DiviOps (0.33 = 3s apart).")
+    min_delay: float = Field(2.0, description="Hard floor (seconds) between any two requests.")
     batch_size: int = Field(50, description="Items per API page")
     checkpoint_dir: Path = Field(Path.cwd() / "checkpoints", description="Checkpoint directory")
-    max_retries: int = Field(3, description="Max retry attempts")
-    timeout: int = Field(30, description="Default request timeout")
+    max_retries: int = Field(5, description="Max retry attempts on transient 5xx/429")
+    timeout: int = Field(60, description="Default request timeout (raise for slow shared hosting)")
     max_content_length: int = Field(10_000_000, description="Max content length to process")
     post_type: str = Field("page", description="Post type: page or post")
 

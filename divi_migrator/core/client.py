@@ -23,19 +23,39 @@ HTTP_NOT_FOUND = 404
 HTTP_TOO_MANY_REQUESTS = 429
 
 
-class TokenBucketRateLimiter:
-    """Token bucket rate limiter for API requests."""
+class HTTPRequestError(RuntimeError):
+    """Raised when an HTTP request ultimately fails after retries."""
 
-    def __init__(self, rate: float, burst: int):
+    def __init__(self, status_code: int, method: str, url: str, detail: str = "") -> None:
+        self.status_code = status_code
+        super().__init__(
+            f"HTTP {status_code} for {method} {url}: {detail}"
+        )
+
+
+class TokenBucketRateLimiter:
+    """Token bucket rate limiter for API requests.
+
+    Enforces two constraints:
+      * an average rate of ``rate`` requests/second (token bucket), and
+      * a hard minimum spacing of ``min_delay`` seconds between any two
+        consecutive calls (so even a freshly-refilled bucket can't fire two
+        requests back-to-back and overload a fragile shared host).
+    """
+
+    def __init__(self, rate: float, burst: int, min_delay: float = 0.0):
         """
         Args:
-            rate: Requests per second (e.g., 0.5 for 2 seconds between requests)
+            rate: Requests per second (e.g., 0.33 for ~3 seconds between requests)
             burst: Maximum burst capacity
+            min_delay: Hard floor of seconds between consecutive requests.
         """
         self.rate = rate
-        self.burst = burst
-        self.tokens = float(burst)
+        self.burst = max(1, burst)
+        self.min_delay = max(0.0, min_delay)
+        self.tokens = float(self.burst)
         self.last_update = time.monotonic()
+        self._last_call = 0.0  # monotonic timestamp of the previous call
         self._lock = threading.Lock()
 
     def take(self) -> None:
@@ -49,6 +69,11 @@ class TokenBucketRateLimiter:
 
                 if self.tokens >= 1.0:
                     self.tokens -= 1.0
+                    # Enforce the hard minimum spacing between consecutive calls.
+                    wait = self.min_delay - (now - self._last_call)
+                    if wait > 0:
+                        time.sleep(wait)
+                    self._last_call = time.monotonic()
                     return
 
                 # Wait for next token
@@ -68,20 +93,27 @@ class WPClient:
         self.request_timeout = config.wp.timeout
         self.audit_guard = audit_guard
 
-        # Rate limiting: default 0.5 req/sec (2s between requests)
+        # Rate limiting: shared bucket throttles ALL traffic to the site.
+        # rate_limit is requests/second; min_delay is a hard floor between calls.
+        mig = config.migration
         self.rate_limiter = TokenBucketRateLimiter(
-            rate=config.migration.rate_limit if hasattr(config.migration, "rate_limit") else 0.5,
-            burst=3
+            rate=mig.rate_limit,
+            burst=1,  # no bursting on fragile shared hosting
+            min_delay=mig.min_delay,
         )
 
-        # Retry strategy
+        # Retry strategy: gentle, jittered backoff for transient 5xx/429.
+        # backoff_factor=2 => waits of ~2,4,8,16s; capped by the retry's own
+        # ceiling. We keep allowed_methods broad so create/update calls retry too.
         retry_strategy = Retry(
-            total=config.migration.max_retries,
-            backoff_factor=1,
+            total=mig.max_retries,
+            backoff_factor=2,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=[
-                "HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST",
-            ],
+            allowed_methods=frozenset(
+                ["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"]
+            ),
+            respect_retry_after_header=True,
+            raise_on_status=False,
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
@@ -99,6 +131,11 @@ class WPClient:
 
     def _apply_rate_limit(self) -> None:
         """Apply rate limiting before request."""
+        self.rate_limiter.take()
+
+    def rate_limit(self) -> None:
+        """Public rate-limit hook so the DiviOps client (which shares this
+        client's token bucket) can pace its own requests identically."""
         self.rate_limiter.take()
 
     def _apply_rate_limit_skip(self) -> None:
@@ -175,44 +212,47 @@ class WPClient:
         return self._request("DELETE", self._url(endpoint), params={"force": "false"})
 
     def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
-        """Execute request with retry logic and rate limiting."""
+        """Execute request.
+
+        Rate limiting and retry/backoff are handled centrally: the shared token
+        bucket (via the calling methods) paces requests, and the mounted
+        HTTPAdapter applies jittered exponential backoff on 429/5xx. This method
+        adds only the 401/403/404/429->Retry-After semantics and JSON decoding.
+        """
         logger.debug("%s %s", method, url)
         kwargs.setdefault("timeout", self.request_timeout)
 
-        # Handle rate limiting from server
-        max_retries = 3
-        for attempt in range(max_retries):
-            resp = self.session.request(method, url, **kwargs)
+        resp = self.session.request(method, url, **kwargs)
 
-            if resp.status_code == HTTP_TOO_MANY_REQUESTS:
-                retry_after = int(resp.headers.get("Retry-After", "5"))
-                logger.warning(f"Rate limited (429), waiting {retry_after}s before retry")
-                time.sleep(retry_after)
-                continue
+        # Surface auth errors clearly rather than masking them as generic failures.
+        if resp.status_code == HTTP_UNAUTHORIZED:
+            raise PermissionError("Authentication failed - check WP credentials")  # noqa: TRY003
+        if resp.status_code == HTTP_FORBIDDEN:
+            raise PermissionError("Forbidden - check permissions")  # noqa: TRY003
 
-            if resp.status_code == HTTP_UNAUTHORIZED:
-                raise PermissionError("Authentication failed - check WP credentials")  # noqa: TRY003
+        # 429 with Retry-After: wait it out, then let the caller retry the call
+        # (the shared rate limiter will also pace the next attempt).
+        if resp.status_code == HTTP_TOO_MANY_REQUESTS:
+            retry_after = int(resp.headers.get("Retry-After", "10"))
+            logger.warning("Rate limited (429), waiting %ss before retry", retry_after)
+            time.sleep(retry_after)
+            return self._request(method, url, **kwargs)
 
-            if resp.status_code == HTTP_FORBIDDEN:
-                raise PermissionError("Forbidden - check permissions")  # noqa: TRY003
+        if resp.status_code == HTTP_NOT_FOUND:
+            return {"ok": False, "error": "Not found", "status": HTTP_NOT_FOUND}
 
-            if resp.status_code == HTTP_NOT_FOUND:
-                return {"ok": False, "error": "Not found", "status": HTTP_NOT_FOUND}
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as exc:
+            # The adapter already exhausted its retries; report the failure.
+            raise HTTPRequestError(
+                resp.status_code, method, url, str(exc)
+            ) from exc
 
-            try:
-                resp.raise_for_status()
-            except requests.HTTPError:
-                if attempt == max_retries - 1:
-                    raise
-                time.sleep(2 ** attempt)  # Exponential backoff
-                continue
-
-            try:
-                return cast(dict[str, Any], resp.json())
-            except Exception:
-                return {"ok": True, "data": resp.text, "status": resp.status_code}
-
-        raise RuntimeError(f"Max retries exceeded for {method} {url}")  # noqa: TRY003
+        try:
+            return cast(dict[str, Any], resp.json())
+        except Exception:
+            return {"ok": True, "data": resp.text, "status": resp.status_code}
 
     # Convenience methods
     def get_items(  # noqa: PLR0913
@@ -291,7 +331,13 @@ class DiviOpsClient:
         self.base = wp_client.base_url
 
     def _request(self, method: str, endpoint: str, **kwargs: Any) -> dict[str, Any]:
-        """Make authenticated request to DiviOps endpoint."""
+        """Make authenticated request to DiviOps endpoint.
+
+        Goes through the SAME shared rate limiter as the WP client so all
+        traffic to the site is throttled together (cheap shared hosting cannot
+        absorb unthrottled DiviOps bursts).
+        """
+        self.wp.rate_limit()
         url = f"{self.base}/wp-json/diviops/v1/{endpoint.lstrip('/')}"
         kwargs.setdefault("timeout", self.wp.request_timeout)
         resp = self.wp.session.request(method, url, **kwargs)
@@ -302,6 +348,11 @@ class DiviOpsClient:
             raise PermissionError("DiviOps forbidden - check permissions")  # noqa: TRY003
         if resp.status_code == 404:  # noqa: PLR2004
             return {"ok": False, "error": "Not found", "status": 404}
+        if resp.status_code == HTTP_TOO_MANY_REQUESTS:
+            retry_after = int(resp.headers.get("Retry-After", "10"))
+            logger.warning("DiviOps rate limited (429), waiting %ss", retry_after)
+            time.sleep(retry_after)
+            return self._request(method, endpoint, **kwargs)
 
         resp.raise_for_status()
         try:
