@@ -51,10 +51,15 @@ class MigrationOrchestrator:
         return "#ffffff"
 
     def _get_original_metadata(self, post_type: str, item_id: int) -> dict[str, Any]:
-        """Extract original metadata to preserve - from audit (immutable) or WP."""
+        """Extract original metadata to preserve - from audit (immutable) or WP.
+
+        Returns top-level WP fields (date, slug, author, status) plus
+        ``categories``/``tags`` so the migrated item keeps the original's
+        publication date, taxonomy and authorship.
+        """
         original = self.audit.get_original(post_type, item_id)
         if original:
-            return {
+            meta: dict[str, Any] = {
                 "date": original.date,
                 "date_gmt": original.date_gmt,
                 "modified": original.date_gmt,
@@ -63,19 +68,26 @@ class MigrationOrchestrator:
                 "author": original.author,
                 "status": original.status,
             }
-        # Fallback to WP
+        else:
+            meta = {}
+        # Categories/tags live on the live original (preserved, renamed to -old).
         wp_original = self.wp.get_item(post_type, item_id)
-        if not isinstance(wp_original, dict):
-            return {}
-        return {
-            "date": wp_original.get("date"),
-            "date_gmt": wp_original.get("date_gmt"),
-            "modified": wp_original.get("modified"),
-            "modified_gmt": wp_original.get("modified_gmt"),
-            "slug": wp_original.get("slug"),
-            "author": wp_original.get("author"),
-            "status": wp_original.get("status"),
-        }
+        if isinstance(wp_original, dict):
+            if "categories" in wp_original:
+                meta["categories"] = wp_original["categories"]
+            if "tags" in wp_original:
+                meta["tags"] = wp_original["tags"]
+            if not original:
+                meta.update({
+                    "date": wp_original.get("date"),
+                    "date_gmt": wp_original.get("date_gmt"),
+                    "modified": wp_original.get("modified"),
+                    "modified_gmt": wp_original.get("modified_gmt"),
+                    "slug": wp_original.get("slug"),
+                    "author": wp_original.get("author"),
+                    "status": wp_original.get("status"),
+                })
+        return meta
 
     def _migrate_item(  # noqa: C901 PLR0912 PLR0915
         self, post_type: str, item: dict[str, Any], design_system: DesignSystem, dry_run: bool
@@ -139,6 +151,22 @@ class MigrationOrchestrator:
                 "id": item["id"], "title": title, "status": "dry_run",
                 "draft_id": None, "verification": None, "meta": None,
             }
+
+        # Idempotency: trash any leftover draft from a prior (failed) run for
+        # this exact source so retries don't accumulate orphan drafts.
+        prior = self.wp.get_items(
+            post_type, status="draft", per_page=20,
+            search=title,
+        )
+        if isinstance(prior, list):
+            for d in prior:
+                if not isinstance(d, dict):
+                    continue
+                did = int(d.get("id", 0))
+                dmeta = d.get("meta", {})
+                if did and dmeta.get("_divi_migrator", {}).get("source_id") == item["id"]:
+                    self.wp.delete(f"{post_type}s/{did}", force=False)
+                    logger.info("  🧹 Trashed prior draft %d for source #%d", did, item["id"])
 
         # Create NEW draft via DiviOps with DRAFT status (transaction safety)
         draft = self.diviops.create_content(
@@ -208,25 +236,42 @@ class MigrationOrchestrator:
         if isinstance(update_result, dict) and update_result.get("id"):
             logger.info("  ✅ Applied original title/slug to migrated draft")
 
-        # Publish the draft now that everything succeeded
-        publish_result = self.wp.put(f"{post_type}s/{draft_id}", json_data={"status": "publish"})
+        # Publish the draft now that everything succeeded, preserving the
+        # original publication date, categories and tags.
+        publish_payload: dict[str, Any] = {"status": "publish"}
+        if original_meta.get("date"):
+            publish_payload["date"] = original_meta["date"]
+        if original_meta.get("date_gmt"):
+            publish_payload["date_gmt"] = original_meta["date_gmt"]
+        cats = list(original_meta.get("categories", []))
+        if cat_id and post_type == "post" and cat_id not in cats:
+            cats.append(cat_id)
+        if cats:
+            publish_payload["categories"] = cats
+        if original_meta.get("tags"):
+            publish_payload["tags"] = original_meta["tags"]
+        publish_result = self.wp.put(f"{post_type}s/{draft_id}", json_data=publish_payload)
         if isinstance(publish_result, dict) and publish_result.get("id"):
-            logger.info("  ✅ Published migrated draft")
+            logger.info("  ✅ Published migrated draft (original date/cats/tags preserved)")
 
-        # Rename the ORIGINAL to '<slug>-old' so the migrated item owns the
-        # exact original URL/title. The audit retains the immutable original
-        # title/slug, so rollback restores them. Skipped in dry_run (no draft
-        # was created) and guarded by the audit (originals are never force-deleted).
+        # Rename the ORIGINAL to '<slug>-old' and set it to DRAFT so the
+        # migrated item owns the exact original URL/title. The audit retains
+        # the immutable original title/slug, so rollback restores them.
+        # Skipped in dry_run (no draft was created) and guarded by the audit
+        # (originals are never force-deleted).
         if not dry_run:
             old_title = f"{title}-old"
             old_slug = f"{slug}-old"
             rename_result = self.wp.put(
                 f"{post_type}s/{item_id}",
-                json_data={"title": old_title, "slug": old_slug},
+                json_data={"title": old_title, "slug": old_slug, "status": "draft"},
             )
             if isinstance(rename_result, dict) and rename_result.get("id"):
                 self.audit.mark_renamed(post_type, item_id, old_title, old_slug)
-                logger.info("  ✅ Renamed original to '%s' (slug: %s)", old_title, old_slug)
+                logger.info(
+                    "  ✅ Renamed original to '%s' (slug: %s) and set to draft",
+                    old_title, old_slug,
+                )
 
         # Mark complete in audit
         self.audit.complete_migration(post_type, item_id, draft_id)

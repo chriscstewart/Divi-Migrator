@@ -326,9 +326,9 @@ class AvadaConverter(BaseConverter):
         rows = self.ROW_PATTERN.findall(inner)
 
         # Section background
-        bg = None
+        bg: dict[str, Any] = {}
         if container_attrs.get("background_image"):
-            bg = {"image": container_attrs["background_image"]}
+            bg = {"image": {"src": container_attrs["background_image"]}}
         elif container_attrs.get("background_color"):
             bg = {"color": container_attrs["background_color"]}
 
@@ -346,7 +346,7 @@ class AvadaConverter(BaseConverter):
 
         # Create section with background
         if bg and "image" in bg:
-            s = section_bg_image({"url": bg["image"]}, section_html)
+            s = section_bg_image(bg["image"], section_html)
         elif bg and "color" in bg:
             s = section_bg_color(bg["color"], section_html)
         else:
@@ -377,7 +377,8 @@ class AvadaConverter(BaseConverter):
         columns_html = "".join(col_blocks)
 
         if bg_color or bg_image:
-            return row_flex(columns_html, background_color=bg_color, background_image={"url": bg_image} if bg_image else None)  # noqa: E501
+            bg_img = {"image": {"src": bg_image}} if bg_image else None
+            return row_flex(columns_html, background_color=bg_color, background_image=bg_img)
         return row(columns_html, layout="4_4")
 
     def _convert_column_to_blocks(self, column_match: str) -> str:

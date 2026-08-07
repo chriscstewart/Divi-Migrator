@@ -70,12 +70,15 @@ def _section_module(bg: dict[str, Any] | None = None, spacing: dict[str, Any] | 
     m: dict[str, Any] = {
         "decoration": {
             "layout": {"desktop": {"value": {"display": "block"}}},
-            "background": {"desktop": {"value": {}}},
             "spacing": {"desktop": {"value": {}}},
         }
     }
+    # Only attach a background when one is actually supplied. Real Divi 5
+    # omits the `background` key entirely for sections/rows with no background;
+    # an empty `{"desktop": {"value": {}}}` background triggers Divi 5's
+    # background renderer to crash on save/preview.
     if bg:
-        m["decoration"]["background"]["desktop"]["value"] = bg
+        m["decoration"]["background"] = {"desktop": {"value": bg}}
     if spacing:
         m["decoration"]["spacing"]["desktop"]["value"] = spacing
     return m
