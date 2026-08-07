@@ -153,11 +153,17 @@ class MigrationOrchestrator:
             }
 
         # Idempotency: trash any leftover draft from a prior (failed) run for
-        # this exact source so retries don't accumulate orphan drafts.
-        prior = self.wp.get_items(
-            post_type, status="draft", per_page=20,
-            search=title,
-        )
+        # this exact source so retries don't accumulate orphan drafts. The
+        # search query can be heavy on cheap shared hosting and may 500; if it
+        # fails we simply skip pre-cleanup rather than aborting the migration.
+        try:
+            prior = self.wp.get_items(
+                post_type, status="draft", per_page=5,
+                search=title,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Pre-creation orphan check failed (skipping): %s", e)
+            prior = None
         if isinstance(prior, list):
             for d in prior:
                 if not isinstance(d, dict):
