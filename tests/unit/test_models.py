@@ -11,6 +11,13 @@ from divi_migrator.models import (
     MigrationStatus,
 )
 
+# Test constants
+TEST_SOURCE_ID = 123
+TEST_CONTENT_LEN = 1000
+EXPECTED_SECTIONS = 2
+EXPECTED_ROWS = 3
+EXPECTED_MODULES = 5
+
 
 def test_design_system_defaults():
     ds = DesignSystem.defaults()
@@ -42,18 +49,16 @@ def test_migration_meta_defaults():
 
 
 def test_checkpoint_record():
-    from divi_migrator.models import MigrationMeta
-
-    meta = MigrationMeta(source_id=123, source_title="Test")
+    meta = MigrationMeta(source_id=TEST_SOURCE_ID, source_title="Test")
     record = CheckpointRecord(
-        id=123,
+        id=TEST_SOURCE_ID,
         title="Test Page",
-        content_len=1000,
+        content_len=TEST_CONTENT_LEN,
         meta=meta,
     )
-    assert record.id == 123
+    assert record.id == TEST_SOURCE_ID
     assert record.title == "Test Page"
-    assert record.content_len == 1000
+    assert record.content_len == TEST_CONTENT_LEN
 
 
 def test_checkpoint_data():
@@ -64,9 +69,11 @@ def test_checkpoint_data():
 
 
 def test_verification_result():
-    vr = VerificationResult(passed=True, sections=2, rows=3, modules=5)
+    vr = VerificationResult(
+        passed=True, sections=EXPECTED_SECTIONS, rows=EXPECTED_ROWS, modules=EXPECTED_MODULES
+    )
     assert vr.passed is True
-    assert vr.sections == 2
+    assert vr.sections == EXPECTED_SECTIONS
     assert "PASSED" in vr.summary
 
 

@@ -1,4 +1,4 @@
-"""Plain HTML to Divi 5 converter."""
+"""Plain HTML to Divi 5 block markup converter."""
 
 from __future__ import annotations
 
@@ -6,6 +6,9 @@ import re
 from typing import Any
 
 from divi_migrator.converters.base import BaseConverter, ExtractedAssets
+from divi_migrator.converters.divi5_blocks import (
+    placeholder, section_bg_color, row_flex, column, text,
+)
 
 
 class PlainHTMLConverter(BaseConverter):
@@ -39,18 +42,22 @@ class PlainHTMLConverter(BaseConverter):
         # If it has HTML tags, it's likely plain HTML
         return bool(re.search(r"<[a-z][^>]*>", content))
 
-    def convert(self, content: str, _source_id: int, _design_system: Any = None) -> str:
-        """Convert plain HTML to Divi 5 structure."""
-        # Clean HTML
-        content = self._clean_html(content)
+    def convert(self, content: str, _source_id: int, design_system: Any = None, wp_client: Any = None) -> str:  # noqa: E501,ARG002
+            """Convert plain HTML to Divi 5 block markup."""
+            # Clean HTML
+            content = self._clean_html(content)
 
-        # Wrap in Divi structure
-        return (
-            f'[et_pb_section background_color="#f7f4ef"]'
-            f'[et_pb_row][et_pb_column type="4_4"]'
-            f'[et_pb_text _builder_version="5.0"]{content}[/et_pb_text]'
-            f"[/et_pb_column][/et_pb_row][/et_pb_section]"
-        )
+            # Get background color from design system
+            bg_color = "#ffffff"  # default
+            if design_system and hasattr(design_system, "primary_background_color"):
+                bg_color = design_system.primary_background_color or "#ffffff"
+
+            # Wrap in Divi 5 structure
+            inner = text(content)
+            col = column(inner=inner, layout="4_4")
+            r = row_flex(col, background_color=bg_color)
+            s = section_bg_color(bg_color, r)
+            return placeholder(s)
 
     def _clean_html(self, content: str) -> str:
         """Clean HTML content for safe embedding."""

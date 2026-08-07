@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T", bound="BaseConverter")
 
@@ -31,19 +31,24 @@ class BaseConverter(ABC):
 
     @abstractmethod
     def convert(self, content: str, source_id: int, design_system: Any = None) -> str:
-        """Convert source content to Divi 5 shortcodes."""
+        """Convert source content to Divi 5 block markup."""
 
     @abstractmethod
     def extract_assets(self, content: str) -> ExtractedAssets:
         """Extract images, buttons, forms, etc. from content."""
 
     def _wrap_as_plain_html(self, content: str) -> str:
-        """Wrap content in default Divi 5 structure."""
+        """Wrap content in default Divi 5 block structure."""
         return (
-            f'[et_pb_section background_color="#f7f4ef"]'
-            f'[et_pb_row][et_pb_column type="4_4"]'
-            f'[et_pb_text _builder_version="5.0"]{content}[/et_pb_text]'
-            f"[/et_pb_column][/et_pb_row][/et_pb_section]"
+            '<!-- wp:divi/placeholder {"builderVersion":"5.9.0"} -->'
+            '<!-- wp:divi/section {"module":{"decoration":{"layout":{"desktop":{"value":{"display":"block"}}},"background":{"desktop":{"value":{"color":"#ffffff"}}},"spacing":{"desktop":{"value":{}}}},"builderVersion":"5.9.0"} -->'  # noqa: E501
+            '<!-- wp:divi/row {"module":{"decoration":{"layout":{"desktop":{"value":{"display":"flex","flexWrap":"nowrap","alignItems":"center"}}},"phone":{"value":{"flexWrap":"wrap"}},"phoneWide":{"value":{"flexWrap":"wrap"}}}},"builderVersion":"5.9.0"} -->'  # noqa: E501
+            '<!-- wp:divi/column {"options":{"columnLayout":"4_4"},"module":{"advanced":{"type":{"desktop":{"value":"4_4"}}},"decoration":{"sizing":{"desktop":{"value":{"flexType":"24_24"}},"phone":{"value":{"flexType":"24_24"}},"phoneWide":{"value":{"flexType":"24_24"}}}},"builderVersion":"5.9.0"} -->'  # noqa: E501
+            f'<!-- wp:divi/text {{"content":{{"innerContent":{{"desktop":{{"value":"{content}"}}}},"module":{{"decoration":{{"animation":{{"desktop":{{"value":{{"style":"fade","delay":"0ms"}}}}}}}},"builderVersion":"5.9.0"}} /-->'  # noqa: E501
+            '<!-- /wp:divi/column -->'
+            '<!-- /wp:divi/row -->'
+            '<!-- /wp:divi/section -->'
+            '<!-- /wp:divi/placeholder -->'
         )
 
 

@@ -5,10 +5,14 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+if TYPE_CHECKING:
+    from divi_migrator.credentials.core import CompleteConfig
 
 
 class WPSettings(BaseSettings):
@@ -18,7 +22,7 @@ class WPSettings(BaseSettings):
 
     url: str = Field(..., description="WordPress site URL")
     user: str = Field(..., description="WP REST API username")
-    app_password: str = Field(..., description="Application password")
+    app_password: str = Field(default="", description="Application password")
     ssl_verify: bool = Field(True, description="Verify SSL certificates")
     timeout: int = Field(30, description="Request timeout in seconds")
 
@@ -29,6 +33,8 @@ class DiviOpsSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="DIVIOPS_")
 
     url: str | None = Field(None, description="DiviOps endpoint (defaults to WP_URL)")
+    user: str | None = Field(None, description="DiviOps WP REST API username")
+    app_password: str | None = Field(None, description="DiviOps application password (no spaces)")
     timeout: int = Field(60, description="Request timeout in seconds")
 
 
@@ -37,12 +43,24 @@ class MigrationSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="MIGRATION_")
 
-    rate_limit: float = Field(2.0, description="Seconds between requests")
+    rate_limit: float = Field(0.5, description="Seconds between requests (0.5 = 2 req/sec)")
     batch_size: int = Field(50, description="Items per API page")
-    checkpoint_dir: Path = Field(Path("./checkpoints"), description="Checkpoint directory")
+    checkpoint_dir: Path = Field(Path.cwd() / "checkpoints", description="Checkpoint directory")
     max_retries: int = Field(3, description="Max retry attempts")
     timeout: int = Field(30, description="Default request timeout")
     max_content_length: int = Field(10_000_000, description="Max content length to process")
+    post_type: str = Field("page", description="Post type: page or post")
+
+
+class AuditSettings(BaseSettings):
+    """Audit system settings."""
+
+    model_config = SettingsConfigDict(env_prefix="AUDIT_")
+
+    backup_dir: Path = Field(Path("./audit_backups"), description="Local audit backup directory")
+    wp_option_key: str = Field("divi_migrator_audit", description="WP option key for audit storage")
+    auto_backup: bool = Field(True, description="Auto-create local JSON backups")
+    max_backups: int = Field(10, description="Maximum local backups to keep")
 
 
 class VerificationSettings(BaseSettings):
@@ -67,6 +85,7 @@ class DesignSystemSettings(BaseSettings):
     fallback_to_defaults: bool = Field(True)
     primary_color_override: str | None = None
     section_bg_override: str | None = None
+    background_color_token: str = Field("primary_background_color")
 
 
 class Config(BaseSettings):
@@ -75,6 +94,7 @@ class Config(BaseSettings):
     wp: WPSettings
     diviops: DiviOpsSettings = DiviOpsSettings()  # type: ignore[call-arg]
     migration: MigrationSettings = MigrationSettings()  # type: ignore[call-arg]
+    audit: AuditSettings = AuditSettings()  # type: ignore[call-arg]
     verification: VerificationSettings = VerificationSettings()  # type: ignore[call-arg]
     design_system: DesignSystemSettings = DesignSystemSettings()  # type: ignore[call-arg]
 
@@ -101,3 +121,12 @@ class Config(BaseSettings):
 
         data = yaml.safe_load(content)
         return cls(**data)
+
+    @classmethod
+    def from_complete_config(cls, complete: CompleteConfig) -> Config:
+        """Create Config from CompleteConfig (new credential system)."""
+        return cls(
+            wp=WPSettings(**complete.wp.to_config_dict()),
+            diviops=DiviOpsSettings(**complete.diviops.to_config_dict()),
+            migration=MigrationSettings(**complete.migration.to_config_dict()),
+        )

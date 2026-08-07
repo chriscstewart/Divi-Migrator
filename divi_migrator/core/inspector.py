@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from divi_migrator.config import Config
 from divi_migrator.core.client import WPClient
@@ -17,15 +17,19 @@ from divi_migrator.models.design_system import (
     FontToken,
 )
 
+if TYPE_CHECKING:
+    from divi_migrator.core.client import DiviOpsClient
+
 logger = logging.getLogger(__name__)
 
 
 class DesignSystemInspector:
     """Inspects target site's Divi design system via DiviOps REST API."""
 
-    def __init__(self, config: Config, wp_client: WPClient):
+    def __init__(self, config: Config, wp_client: WPClient, diviops_client: DiviOpsClient):
         self.config = config
         self.wp = wp_client
+        self.diviops = diviops_client
 
     def fetch_design_system(self) -> DesignSystem:
         """Fetch complete design system from DiviOps."""
@@ -60,9 +64,7 @@ class DesignSystemInspector:
     def _fetch_global_colors(self) -> GlobalColors:
         """Fetch global color palette from DiviOps."""
         try:
-            resp = self.wp.get(
-                f"{self.config.wp.url}/wp-json/diviops/v1/global-color/list"
-            )
+            resp = self.diviops.get("global-color/list")
             if not resp.get("ok"):
                 return GlobalColors()
 
@@ -82,8 +84,11 @@ class DesignSystemInspector:
                     used_in_posts=val.get("usedInPosts", []),
                 )
 
+            # Store the raw customizer data for background color lookup
+            gc.customizer_raw = customizer
+
             logger.info("Fetched %d global colors", len(gc.colors))
-            return gc
+            return gc  # noqa: TRY300
         except Exception as e:
             logger.warning("Failed to fetch global colors: %s", e)
             return GlobalColors()
@@ -91,9 +96,7 @@ class DesignSystemInspector:
     def _fetch_global_fonts(self) -> GlobalFonts:
         """Fetch global fonts from DiviOps."""
         try:
-            resp = self.wp.get(
-                f"{self.config.wp.url}/wp-json/diviops/v1/global-font/list"
-            )
+            resp = self.wp.get("diviops/v1/global-font/list")
             if not resp.get("ok"):
                 return GlobalFonts()
 
@@ -112,7 +115,7 @@ class DesignSystemInspector:
                     is_uploaded=val.get("isUploaded", False),
                 )
 
-            return gf
+            return gf  # noqa: TRY300
         except Exception as e:
             logger.warning("Failed to fetch global fonts: %s", e)
             return GlobalFonts()
@@ -120,9 +123,7 @@ class DesignSystemInspector:
     def _fetch_presets(self) -> DesignPresets:
         """Fetch module presets from DiviOps."""
         try:
-            resp = self.wp.get(
-                f"{self.config.wp.url}/wp-json/diviops/v1/preset/list"
-            )
+            resp = self.wp.get("diviops/v1/preset/list")
             if not resp.get("ok"):
                 return DesignPresets()
 
@@ -146,7 +147,7 @@ class DesignSystemInspector:
             backgrounds = data.get("divi/background", {})
             presets.background = backgrounds.get("items", {})
 
-            return presets
+            return presets  # noqa: TRY300
         except Exception as e:
             logger.warning("Failed to fetch presets: %s", e)
             return DesignPresets()
@@ -154,9 +155,7 @@ class DesignSystemInspector:
     def _fetch_variables(self) -> DiviVariables:
         """Fetch CSS variables from DiviOps."""
         try:
-            resp = self.wp.get(
-                f"{self.config.wp.url}/wp-json/diviops/v1/variable/list"
-            )
+            resp = self.wp.get("diviops/v1/variable/list")
             if not resp.get("ok"):
                 return DiviVariables()
 
@@ -171,11 +170,11 @@ class DesignSystemInspector:
         """Fetch custom CSS from theme customizer."""
         try:
             # Try theme options endpoint
-            resp = self.wp.get(f"{self.config.wp.url}/wp-json/wp/v2/settings")
+            resp = self.wp.get("wp/v2/settings")
             if resp.get("ok"):
                 # This might have custom CSS
                 pass
-            return ""
+            return ""  # noqa: TRY300
         except Exception:
             return ""
 
@@ -185,8 +184,7 @@ class DesignSystemInspector:
         return {}
 
 
-def fetch_design_system(config: Config, wp_client: WPClient) -> DesignSystem:
+def fetch_design_system(config: Config, wp_client: WPClient, diviops_client: DiviOpsClient) -> DesignSystem:  # noqa: E501
     """Convenience function to fetch design system."""
-    inspector = DesignSystemInspector(config, wp_client)
+    inspector = DesignSystemInspector(config, wp_client, diviops_client)
     return inspector.fetch_design_system()
-

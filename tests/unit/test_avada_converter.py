@@ -3,6 +3,14 @@
 import pytest
 from divi_migrator.converters.avada import AvadaConverter
 
+# Test constants
+MIN_PASSWORD_LENGTH = 16
+DEFAULT_YOUTUBE_ID = "dQw4w9WgXcQ"
+DEFAULT_YOUTUBE_URL = f"https://www.youtube.com/watch?v={DEFAULT_YOUTUBE_ID}"
+DEFAULT_VIMEO_ID = "123456789"
+EXPECTED_IMAGE_SRC = "123|medium"
+EXPECTED_IMAGE_ALT = "Test Image"
+
 
 class TestAvadaConverter:
     """Tests for AvadaConverter."""
@@ -13,7 +21,11 @@ class TestAvadaConverter:
 
     def test_detect_avada(self, converter):
         """Test detection of Avada content."""
-        avada_content = "[fusion_builder_container][fusion_builder_row][fusion_builder_column][fusion_text]Hello[/fusion_text][/fusion_builder_column][/fusion_builder_row][/fusion_builder_container]"
+        avada_content = (
+            "[fusion_builder_container][fusion_builder_row]"
+            "[fusion_builder_column][fusion_text]Hello[/fusion_text]"
+            "[/fusion_builder_column][/fusion_builder_row][/fusion_builder_container]"
+        )
         assert converter.detect(avada_content) is True
 
     def test_detect_not_avada(self, converter):
@@ -26,7 +38,9 @@ class TestAvadaConverter:
 
     def test_extract_attr(self, converter):
         """Test attribute extraction."""
-        shortcode = '[fusion_button text="Click Me" link="https://example.com" color="red"]'
+        shortcode = (
+            '[fusion_button text="Click Me" link="https://example.com" color="red"]'
+        )
         assert converter.extract_attr(shortcode, "text") == "Click Me"
         assert converter.extract_attr(shortcode, "link") == "https://example.com"
         assert converter.extract_attr(shortcode, "color") == "red"
@@ -53,16 +67,23 @@ class TestAvadaConverter:
         assert converter.COLUMN_MAP["1_6"] == "1_6"
 
     def test_convert_simple_container(self, converter):
-        """Test simple container conversion."""
-        content = '[fusion_builder_container][fusion_builder_row][fusion_builder_column type="1_1"][fusion_text]Hello World[/fusion_text][/fusion_builder_column][/fusion_builder_row][/fusion_builder_container]'
+        """Test simple container conversion to Divi 5 blocks."""
+        content = (
+            "[fusion_builder_container][fusion_builder_row]"
+            '[fusion_builder_column type="1_1"][fusion_text]Hello World'
+            "[/fusion_text][/fusion_builder_column][/fusion_builder_row]"
+            "[/fusion_builder_container]"
+        )
         result = converter.convert(content, 123)
 
-        assert "[et_pb_section" in result
-        assert "[et_pb_row" in result
-        assert '[et_pb_column type="4_4"' in result
-        assert "[et_pb_text" in result
+        # Check for Divi 5 block markup format
+        assert "<!-- wp:divi/placeholder" in result
+        assert "<!-- wp:divi/section" in result
+        assert "<!-- wp:divi/row" in result
+        assert "<!-- wp:divi/column" in result
+        assert "<!-- wp:divi/text" in result
         assert "Hello World" in result
-        assert "[/et_pb_section]" in result
+        assert "<!-- /wp:divi/placeholder -->" in result
 
     def test_convert_button(self, converter):
         """Test button conversion."""
@@ -74,7 +95,7 @@ class TestAvadaConverter:
         [fusion_builder_container]
         [fusion_builder_row]
         [fusion_builder_column]
-        [fusion_imageframe src="image.jpg" alt="Test"]
+        [fusion_imageframe image_id="123|medium" alt="Test"]
         [fusion_button text="Click" link="https://example.com"]
         [/fusion_builder_column]
         [/fusion_builder_row]
@@ -83,7 +104,8 @@ class TestAvadaConverter:
         assets = converter.extract_assets(content)
 
         assert len(assets.images) == 1
-        assert assets.images[0]["src"] == "image.jpg"
+        assert assets.images[0]["src"] == EXPECTED_IMAGE_SRC
+        assert assets.images[0]["type"] == "fusion_imageframe"
         assert len(assets.buttons) == 1
         assert assets.buttons[0]["text"] == "Click"
         assert assets.buttons[0]["url"] == "https://example.com"
@@ -91,10 +113,87 @@ class TestAvadaConverter:
     def test_wrap_plain_html(self, converter):
         """Test plain HTML wrapping."""
         html = "<p>Hello world</p>"
-        result = converter._wrap_as_plain_html(html)
+        result = converter._wrap_as_plain_html(html)  # noqa: SLF001
 
-        assert "[et_pb_section" in result
-        assert "[et_pb_row]" in result
-        assert '[et_pb_column type="4_4"]' in result
-        assert "[et_pb_text" in result
+        # Check for Divi 5 block markup format
+        assert "<!-- wp:divi/placeholder" in result
+        assert "<!-- wp:divi/section" in result
+        assert "<!-- wp:divi/row" in result
+        assert "<!-- wp:divi/column" in result
+        assert "<!-- wp:divi/text" in result
         assert "Hello world" in result
+        assert "<!-- /wp:divi/placeholder -->" in result
+
+    def test_youtube_conversion(self, converter):
+        """Test YouTube shortcode conversion to divi/video."""
+        content = (
+            "[fusion_builder_container][fusion_builder_row]"
+            "[fusion_builder_column][fusion_youtube "
+            f'id="{DEFAULT_YOUTUBE_ID}"]'
+            "[/fusion_builder_column][/fusion_builder_row]"
+            "[/fusion_builder_container]"
+        )
+        result = converter.convert(content, 123)
+
+        # Should convert to divi/video with normalized URL
+        assert "wp:divi/video" in result
+        assert DEFAULT_YOUTUBE_URL in result
+
+    def test_vimeo_conversion(self, converter):
+        """Test Vimeo shortcode conversion to divi/video."""
+        content = (
+            "[fusion_builder_container][fusion_builder_row]"
+            f'[fusion_builder_column][fusion_vimeo id="{DEFAULT_VIMEO_ID}"]'
+            "[/fusion_builder_column][/fusion_builder_row]"
+            "[/fusion_builder_container]"
+        )
+        result = converter.convert(content, 123)
+
+        assert "wp:divi/video" in result
+        assert DEFAULT_VIMEO_ID in result
+
+    def test_testimonial_conversion(self, converter):
+        """Test testimonial conversion to blurb."""
+        content = (
+            "[fusion_builder_container][fusion_builder_row]"
+            '[fusion_builder_column][fusion_testimonial name="John Doe" '
+            'company="Acme Corp"]Great service![/fusion_testimonial]'
+            "[/fusion_builder_column][/fusion_builder_row]"
+            "[/fusion_builder_container]"
+        )
+        result = converter.convert(content, 123)
+
+        assert "wp:divi/blurb" in result
+        assert "John Doe" in result
+        assert "Acme Corp" in result
+        assert "Great service" in result
+
+    def test_person_conversion(self, converter):
+        """Test person conversion to team_member."""
+        content = (
+            "[fusion_builder_container][fusion_builder_row]"
+            '[fusion_builder_column][fusion_person name="Jane Smith" '
+            'title="CEO" description="Leader"]'
+            "[/fusion_builder_column][/fusion_builder_row]"
+            "[/fusion_builder_container]"
+        )
+        result = converter.convert(content, 123)
+
+        # Should use team_member module
+        assert ("wp:divi/team-member" in result) or ("wp:divi/blurb" in result)
+        assert "Jane Smith" in result
+
+    def test_image_conversion(self, converter):
+        """Test imageframe conversion."""
+        content = (
+            "[fusion_builder_container][fusion_builder_row]"
+            "[fusion_builder_column][fusion_imageframe "
+            f'image_id="{EXPECTED_IMAGE_SRC}" alt="{EXPECTED_IMAGE_ALT}"]'
+            "[/fusion_builder_column][/fusion_builder_row]"
+            "[/fusion_builder_container]"
+        )
+        result = converter.convert(content, 123)
+
+        assert "wp:divi/image" in result
+        assert EXPECTED_IMAGE_SRC in result
+

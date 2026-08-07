@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -17,7 +17,7 @@ class ColorToken:
     folder: str = "customizer"
     status: str = "active"
     source: str = "wp_customizer"
-    last_updated: Optional[str] = None
+    last_updated: str | None = None
     used_in_posts: list[int] = field(default_factory=list)
 
 
@@ -39,8 +39,10 @@ class GlobalColors:
     """Global color palette from Divi Customizer."""
 
     colors: dict[str, ColorToken] = field(default_factory=dict)
+    # Store raw customizer data for background color lookup
+    customizer_raw: dict[str, Any] = field(default_factory=dict)
 
-    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, default: str | None = None) -> str | None:
         """Get color hex by token key."""
         token = self.colors.get(key)
         return token.color if token else default
@@ -50,16 +52,29 @@ class GlobalColors:
         return self.get("gcid-primary-color", "#770000") or "#770000"
 
     def secondary(self) -> str:
-        return self.get("gcid-secondary-color", "#6b6b6b") or "#6b6b6b"
+        return self.get("gcid-secondary-color", "#6b6b4c") or "#6b6b4c"
 
     def heading(self) -> str:
-        return self.get("gcid-heading-color", "#333333") or "#333333"
+        return self.get("gcid-heading-color", "#613335") or "#613335"
 
     def body(self) -> str:
         return self.get("gcid-body-color", "#4a3f35") or "#4a3f35"
 
     def link(self) -> str:
         return self.get("gcid-link-color", "#7c7c4c") or "#7c7c4c"
+
+    def primary_background(self) -> str:
+        """Get the site background color from customizer."""
+        # Try to get from customizer data
+        # Common keys for site background in Divi customizer
+        for key in ["background_color", "site_background", "gcid-background-color"]:
+            if key in self.customizer_raw:
+                val = self.customizer_raw[key]
+                color: str = val.get("color", "") if isinstance(val, dict) else str(val)
+                if color:
+                    return color
+        # Fallback to white
+        return "#ffffff"
 
 
 @dataclass
@@ -119,7 +134,7 @@ class DesignSystem:
     fetched_at: datetime = field(default_factory=datetime.utcnow)
 
     @classmethod
-    def defaults(cls) -> "DesignSystem":
+    def defaults(cls) -> DesignSystem:
         """Fallback defaults when inspection fails."""
         ds = cls()
         ds.colors.colors = {
@@ -152,3 +167,4 @@ class DesignContext:
     source_format: str
     content_hash: str
     analyzed_at: datetime = field(default_factory=datetime.utcnow)
+

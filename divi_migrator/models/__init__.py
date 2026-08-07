@@ -5,19 +5,40 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from divi_migrator.models.design_system import (
-    ColorToken,
-    DesignContext,
-    DesignPresets,
-    DesignSystem,
-    DiviVariables,
-    GlobalColors,
-    GlobalFonts,
-    FontToken,
-    CustomCSS,
+    ColorToken as ColorToken,
+    DesignContext as DesignContext,
+    DesignPresets as DesignPresets,
+    DesignSystem as DesignSystem,
+    DiviVariables as DiviVariables,
+    GlobalColors as GlobalColors,
 )
+
+CustomCSS = "CustomCSS"
+
+
+__all__ = [
+    "ColorToken",
+    "DesignContext",
+    "DesignPresets",
+    "DesignSystem",
+    "DiviVariables",
+    "GlobalColors",
+    "CustomCSS",
+    "SourceFormat",
+    "MigrationStatus",
+    "DiscoveredItem",
+    "ExtractedAssets",
+    "VerificationResult",
+    "MigrationMeta",
+    "CheckpointRecord",
+    "CheckpointData",
+    "OriginalContent",
+    "MigrationRecord",
+    "AuditData",
+]
 
 
 class SourceFormat(str, Enum):
@@ -48,7 +69,8 @@ class DiscoveredItem:
     title: str
     format: SourceFormat
     content_length: int
-    url: Optional[str] = None
+    url: str | None = None
+    slug: str | None = None
 
 
 @dataclass
@@ -162,3 +184,66 @@ class CheckpointData:
     updated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+
+
+# Audit models
+@dataclass
+class OriginalContent:
+    """Immutable record of original content (stored in audit)."""
+
+    id: int
+    post_type: str
+    title: str
+    slug: str
+    author: int
+    status: str
+    date: str
+    date_gmt: str
+    content_hash: str
+    recorded_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+
+
+@dataclass
+class MigrationRecord:
+    """Migration tracking record."""
+
+    original_id: int
+    migrated_id: int | None = None
+    status: str = "pending"  # pending, in_progress, completed, failed, rolled_back
+    title: str = ""
+    slug: str = ""
+    started_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    completed_at: str | None = None
+    error: str | None = None
+    retries: int = 0
+    content_hash: str = ""
+    renamed_original: bool = False
+    original_old_title: str = ""
+    original_old_slug: str = ""
+
+
+@dataclass
+class AuditData:
+    """Complete audit data structure."""
+
+    version: int = 1
+    created_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    updated_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    original_pages: dict[int, OriginalContent] = field(default_factory=dict)
+    original_posts: dict[int, OriginalContent] = field(default_factory=dict)
+    migration_map: dict[str, MigrationRecord] = field(default_factory=dict)
+
+    total_pages: int = 0
+    total_posts: int = 0
+    migrated_pages: int = 0
+    migrated_posts: int = 0
+    failed_pages: int = 0
+    failed_posts: int = 0

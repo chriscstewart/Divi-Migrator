@@ -73,7 +73,7 @@ Documentation = "https://chriscstewart.github.io/Divi-Migrator/"
 divi-migrate = "divi_migrator.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/divi_migrator"]
+packages = ["divi_migrator"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -85,7 +85,7 @@ include = [
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-src = ["src"]
+src = ["."]
 
 [tool.ruff.lint]
 select = [
@@ -111,6 +111,13 @@ strict = true
 explicit_package_bases = true
 show_error_codes = true
 pretty = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

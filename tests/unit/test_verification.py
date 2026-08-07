@@ -37,6 +37,12 @@ class MockConfig:
         )()
 
 
+# Constants for test assertions
+EXPECTED_SECTIONS = 1
+EXPECTED_ROWS = 1
+EXPECTED_MODULES = 2
+
+
 def test_verify_layout_passed():
     """Test layout verification passes."""
     diviops = MockDiviOpsClient()
@@ -57,7 +63,7 @@ def test_verify_layout_passed():
                             "inner_blocks": [
                                 {
                                     "block_name": "divi/column",
-                                    "inner_blocks": [{"block_name": "divi/text", "attributes": {}}],
+                                    "inner_blocks": [{"block_name": "divi/text", "attributes": {}}],  # noqa: E501
                                 }
                             ],
                         }
@@ -67,15 +73,15 @@ def test_verify_layout_passed():
         },
     }
 
-    result = engine._verify_layout(
+    result = engine.verify_layout(
         diviops.get_page_layout.return_value, {"images": 0, "buttons": 0, "forms": 0}
     )
 
     assert result.verification_passed is True
-    assert result.sections == 1
-    assert result.rows == 1
+    assert result.sections == EXPECTED_SECTIONS
+    assert result.rows == EXPECTED_ROWS
     # column + text = 2 modules (column is counted as module since it starts with divi/)
-    assert result.modules == 2
+    assert result.modules == EXPECTED_MODULES
 
 
 def test_verify_layout_no_sections():
@@ -86,7 +92,7 @@ def test_verify_layout_no_sections():
 
     diviops.get_page_layout.return_value = {"ok": True, "data": {"blocks": []}}
 
-    result = engine._verify_layout(diviops.get_page_layout.return_value, {})
+    result = engine.verify_layout(diviops.get_page_layout.return_value, {})
 
     assert result.verification_passed is False
     assert "No sections found" in result.issues
@@ -111,7 +117,7 @@ def test_verify_layout_missing_images():
                             "inner_blocks": [
                                 {
                                     "block_name": "divi/column",
-                                    "inner_blocks": [{"block_name": "divi/text", "attributes": {}}],
+                                    "inner_blocks": [{"block_name": "divi/text", "attributes": {}}],  # noqa: E501
                                 }
                             ],
                         }
@@ -121,7 +127,7 @@ def test_verify_layout_missing_images():
         },
     }
 
-    result = engine._verify_layout(
+    result = engine.verify_layout(
         diviops.get_page_layout.return_value, {"images": 2, "buttons": 0}
     )
 
@@ -148,7 +154,7 @@ def test_verify_layout_missing_primary_color():
                             "inner_blocks": [
                                 {
                                     "block_name": "divi/column",
-                                    "inner_blocks": [{"block_name": "divi/text", "attributes": {}}],
+                                    "inner_blocks": [{"block_name": "divi/text", "attributes": {}}],  # noqa: E501
                                 }
                             ],
                         }
@@ -158,7 +164,7 @@ def test_verify_layout_missing_primary_color():
         },
     }
 
-    result = engine._verify_layout(diviops.get_page_layout.return_value, {})
+    result = engine.verify_layout(diviops.get_page_layout.return_value, {})
 
     assert result.verification_passed is False
     assert any("Primary color token" in issue for issue in result.issues)
@@ -171,9 +177,9 @@ def test_verify_page_failed_fetch():
 
     diviops.get_page_layout.return_value = {"ok": False, "error": "Not found"}
 
-    # Create proper engine and call _verify_layout directly
+    # Create proper engine and call verify_layout directly
     engine = VerificationEngine(diviops, config)
-    result = engine._verify_layout(diviops.get_page_layout.return_value, {})
+    result = engine.verify_layout(diviops.get_page_layout.return_value, {})
 
     assert result.passed is False
     assert "Layout fetch failed" in result.issues[0]
