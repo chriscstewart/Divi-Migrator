@@ -7,7 +7,7 @@ from typing import Any
 
 from divi_migrator.converters.base import BaseConverter, ExtractedAssets
 from divi_migrator.converters.divi5_blocks import (
-    placeholder, section_bg_color, row_flex, column, text,
+    placeholder, section, section_bg_color, row_flex, column, text,
 )
 
 
@@ -47,16 +47,20 @@ class PlainHTMLConverter(BaseConverter):
             # Clean HTML
             content = self._clean_html(content)
 
-            # Get background color from design system
-            bg_color = "#ffffff"  # default
-            if design_system and hasattr(design_system, "primary_background_color"):
-                bg_color = design_system.primary_background_color or "#ffffff"
+            # NOTE: Plain HTML source has no per-section background, and emitting a
+            # background object (even a valid-looking one) triggers a fatal PHP error
+            # in this host's Divi 5 save handler (verified: 7205 POST with bg -> 500,
+            # without bg -> 201). Real Divi 5 omits the `background` key when there is
+            # no background, so we emit none here. Section backgrounds (when a real
+            # source color exists) are a tracked follow-up, not part of the crash-free
+            # migration path.
+            bg_color = None
 
             # Wrap in Divi 5 structure
             inner = text(content)
             col = column(inner=inner, layout="4_4")
             r = row_flex(col, background_color=bg_color)
-            s = section_bg_color(bg_color, r)
+            s = section_bg_color(bg_color, r) if bg_color else section(r)
             return placeholder(s)
 
     def _clean_html(self, content: str) -> str:
