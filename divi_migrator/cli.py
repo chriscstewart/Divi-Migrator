@@ -12,7 +12,14 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Confirm
 
-from divi_migrator.config import Config, WPSettings
+from divi_migrator.config import (
+    Config,
+    WPSettings,
+    MigrationSettings,
+    VerificationSettings,
+    DesignSystemSettings,
+    AuditSettings,
+)
 from divi_migrator.core.client import WPClient, DiviOpsClient
 from divi_migrator.core.inspector import fetch_design_system
 from divi_migrator.core.orchestrator import MigrationOrchestrator
@@ -29,6 +36,35 @@ app = typer.Typer(help="Divi Migrator - Avada/Fusion Builder to Divi 5 migration
 console = Console()
 
 
+def _overlay_non_secret_config(base: Config, project_root: Path) -> Config:
+    """Overlay non-secret tunables from config.yaml onto a credential-derived Config.
+
+    Credentials (secrets/identity) come from the credential system / .env; the
+    committed config.yaml is the authoritative source for non-secret knobs
+    (rate_limit, min_delay, timeouts, verification, design_system, audit). This
+    keeps secrets out of version control while letting tunables live in config.yaml.
+    Missing or partial config.yaml is tolerated (the credential-derived defaults win).
+    """
+    cfg_path = project_root / "config.yaml"
+    if not cfg_path.exists():
+        return base
+    try:
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001
+        return base
+    for attr, model in (
+        ("migration", MigrationSettings),
+        ("verification", VerificationSettings),
+        ("design_system", DesignSystemSettings),
+        ("audit", AuditSettings),
+    ):
+        if attr in data and isinstance(data[attr], dict):
+            current = getattr(base, attr)
+            merged = {**current.model_dump(), **data[attr]}
+            setattr(base, attr, model(**merged))
+    return base
+
+
 def load_config(
     config_path: str | None = None,
     project_root: str | None = None,
@@ -42,7 +78,9 @@ def load_config(
     """
     try:
         complete = load_credentials(config_path, Path(project_root) if project_root else None, non_interactive=non_interactive)  # noqa: E501
-        return Config.from_complete_config(complete)
+        cfg = Config.from_complete_config(complete)
+        # config.yaml is the authoritative source for non-secret tunables.
+        return _overlay_non_secret_config(cfg, Path(project_root) if project_root else Path.cwd())
     except CredentialError as e:
         # Re-raise credential errors for non-interactive mode
         if non_interactive:
