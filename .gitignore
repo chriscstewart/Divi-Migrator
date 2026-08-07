@@ -45,3 +45,5 @@ Thumbs.db
 # Environment
 .env
 .env.local
+# Credentials / local config (contains live WP app passwords)
+config.yaml
