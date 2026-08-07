@@ -16,28 +16,23 @@ from jsonschema import validate
 
 logger = logging.getLogger(__name__)
 
-# Divi 5 block schema definitions
+# Divi 5 block schema definitions.
+# These mirror the REAL Divi 5 block structure observed on production pages
+# (builderVersion at top level; module-specific content keys such as
+# `content`/`button`/`image`/`title` are top-level siblings of `module`;
+# columns carry layout in `module.advanced.type`, not a top-level `options`).
 DIVI5_BLOCK_SCHEMAS = {
+    "divi/placeholder": {
+        "type": "object",
+        "properties": {
+            "builderVersion": {"type": "string"},
+        },
+    },
     "divi/section": {
         "type": "object",
         "required": ["module"],
         "properties": {
-            "module": {
-                "type": "object",
-                "required": ["decoration"],
-                "properties": {
-                    "decoration": {
-                        "type": "object",
-                        "properties": {
-                            "layout": {"type": "object"},
-                            "background": {"type": "object"},
-                            "spacing": {"type": "object"},
-                        },
-                    },
-                    "meta": {"type": "object"},
-                    "builderVersion": {"type": "string"},
-                },
-            },
+            "module": {"type": "object"},
             "builderVersion": {"type": "string"},
         },
     },
@@ -45,48 +40,34 @@ DIVI5_BLOCK_SCHEMAS = {
         "type": "object",
         "required": ["module"],
         "properties": {
-            "module": {
-                "type": "object",
-                "required": ["advanced", "decoration"],
-                "properties": {
-                    "advanced": {
-                        "type": "object",
-                        "properties": {
-                            "columnStructure": {"type": "object"},
-                            "flexColumnStructure": {"type": "object"},
-                        },
-                    },
-                    "decoration": {
-                        "type": "object",
-                        "properties": {
-                            "layout": {"type": "object"},
-                            "background": {"type": "object"},
-                            "spacing": {"type": "object"},
-                        },
-                    },
-                },
-            },
+            "module": {"type": "object"},
             "builderVersion": {"type": "string"},
         },
     },
     "divi/column": {
         "type": "object",
-        "required": ["options", "module"],
+        "required": ["module"],
         "properties": {
-            "options": {
-                "type": "object",
-                "required": ["columnLayout"],
-                "properties": {"columnLayout": {"type": "string"}},
-            },
             "module": {
                 "type": "object",
-                "required": ["advanced", "decoration"],
                 "properties": {
-                    "advanced": {"type": "object"},
-                    "decoration": {
+                    "advanced": {
                         "type": "object",
-                        "properties": {"sizing": {"type": "object"}},
+                        "properties": {
+                            "type": {
+                                "type": "object",
+                                "properties": {
+                                    "desktop": {
+                                        "type": "object",
+                                        "properties": {
+                                            "value": {"type": "string"}
+                                        },
+                                    }
+                                },
+                            }
+                        },
                     },
+                    "decoration": {"type": "object"},
                 },
             },
             "builderVersion": {"type": "string"},
@@ -101,90 +82,54 @@ DIVI5_BLOCK_SCHEMAS = {
                 "required": ["innerContent"],
                 "properties": {"innerContent": {"type": "object"}},
             },
-            "module": {
-                "type": "object",
-                "properties": {"decoration": {"type": "object"}},
-            },
+            "module": {"type": "object"},
             "builderVersion": {"type": "string"},
         },
     },
     "divi/heading": {
         "type": "object",
-        "required": ["title", "content", "builderVersion"],
+        "required": ["title", "module"],
         "properties": {
-            "title": {
-                "type": "object",
-                "required": ["headingLevel", "decoration"],
-                "properties": {
-                    "headingLevel": {"type": "string"},
-                    "decoration": {"type": "object"},
-                },
-            },
-            "content": {
-                "type": "object",
-                "required": ["innerContent"],
-                "properties": {"innerContent": {"type": "object"}},
-            },
+            "title": {"type": "object"},
+            "module": {"type": "object"},
             "builderVersion": {"type": "string"},
         },
     },
     "divi/button": {
         "type": "object",
-        "required": ["button", "builderVersion"],
+        "required": ["button", "module"],
         "properties": {
-            "button": {
-                "type": "object",
-                "required": ["innerContent", "decoration", "sizing"],
-                "properties": {
-                    "innerContent": {"type": "object"},
-                    "decoration": {"type": "object"},
-                    "sizing": {"type": "object"},
-                },
-            },
+            "button": {"type": "object"},
+            "module": {"type": "object"},
             "builderVersion": {"type": "string"},
         },
     },
     "divi/image": {
         "type": "object",
-        "required": ["image", "builderVersion"],
+        "required": ["image", "module"],
         "properties": {
-            "image": {
-                "type": "object",
-                "required": ["innerContent"],
-                "properties": {"innerContent": {"type": "object"}},
-            },
+            "image": {"type": "object"},
+            "module": {"type": "object"},
+            "builderVersion": {"type": "string"},
+        },
+    },
+    "divi/blurb": {
+        "type": "object",
+        "required": ["content", "module"],
+        "properties": {
+            "content": {"type": "object"},
+            "title": {"type": "object"},
+            "imageIcon": {"type": "object"},
+            "module": {"type": "object"},
             "builderVersion": {"type": "string"},
         },
     },
     "divi/divider": {
         "type": "object",
-        "required": ["divider", "builderVersion"],
+        "required": ["divider", "module"],
         "properties": {
-            "divider": {
-                "type": "object",
-                "required": ["decoration"],
-                "properties": {"decoration": {"type": "object"}},
-            },
-            "builderVersion": {"type": "string"},
-        },
-    },
-    "divi/placeholder": {
-        "type": "object",
-        "required": ["builderVersion"],
-        "properties": {"builderVersion": {"type": "string"}},
-    },
-    "divi/blurb": {
-        "type": "object",
-        "required": ["blurb", "builderVersion"],
-        "properties": {
-            "blurb": {
-                "type": "object",
-                "required": ["content", "decoration"],
-                "properties": {
-                    "content": {"type": "object"},
-                    "decoration": {"type": "object"},
-                },
-            },
+            "divider": {"type": "object"},
+            "module": {"type": "object"},
             "builderVersion": {"type": "string"},
         },
     },

@@ -29,13 +29,20 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 def make_block(block_type: str, attrs: dict[str, Any], inner: str = "", is_self_closing: bool = False) -> str:  # noqa: E501
-    """Create a Divi 5 block comment with attributes."""
-    if "module" not in attrs:
+    """Create a Divi 5 block comment with attributes.
+
+    In real Divi 5 the block comment carries top-level keys such as
+    ``builderVersion`` plus module-specific content keys (e.g. ``content``,
+    ``button``, ``image``) as siblings of ``module``. Container blocks
+    (section/row/column) keep ``builderVersion`` at the top level too.
+    """
+    if "module" not in attrs and not is_self_closing:
         raise ValueError(f"Block attributes must contain 'module' key for {block_type}")  # noqa: TRY003
 
-    # Add builderVersion to module if not present
-    if "builderVersion" not in attrs["module"]:
-        attrs["module"]["builderVersion"] = "5.9.0"
+    # builderVersion is a top-level attribute in real Divi 5 blocks.
+    attrs = dict(attrs)
+    if "builderVersion" not in attrs:
+        attrs["builderVersion"] = "5.9.0"
 
     attrs_json = json.dumps(attrs, ensure_ascii=False, separators=(",", ":"))
 
@@ -46,9 +53,11 @@ def make_block(block_type: str, attrs: dict[str, Any], inner: str = "", is_self_
 
 
 def placeholder(inner: str) -> str:
-    """Wrap content in divi/placeholder wrapper (required for Divi 5)."""
-    m: dict[str, Any] = {"module": {}}
-    return make_block("divi/placeholder", m, inner=inner, is_self_closing=False)
+    """Wrap content in divi/placeholder wrapper (required for Divi 5).
+
+    Real Divi 5 placeholders are empty self-closing comments with no attrs.
+    """
+    return "<!-- wp:divi/placeholder -->" + inner + "<!-- /wp:divi/placeholder -->"
 
 
 # =============================================================================
@@ -199,19 +208,35 @@ def column(inner: str, layout: str = "4_4", module: dict[str, Any] | None = None
 
 
 def _text_module(html: str) -> dict[str, Any]:
-    """Build text module attributes."""
+    """Build text block attributes (top-level ``content`` + ``module``)."""
     return {
-        "text": {
+        "content": {
             "innerContent": {
                 "desktop": {"value": html}
             }
-        }
+        },
+        "module": {
+            "decoration": {
+                "layout": {"desktop": {"value": {"justifyContent": "start"}}},
+                "spacing": {
+                    "desktop": {
+                        "value": {
+                            "padding": {
+                                "bottom": "1em",
+                                "syncVertical": "off",
+                                "syncHorizontal": "off",
+                            }
+                        }
+                    }
+                },
+            }
+        },
     }
 
 
 def text(html: str, **attrs: Any) -> str:
     """Create a divi/text block."""
-    m = {"module": _text_module(html)}
+    m = _text_module(html)
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/text", m, is_self_closing=True)
@@ -223,24 +248,34 @@ def text(html: str, **attrs: Any) -> str:
 
 
 def _heading_module(text_content: str, level: str = "h2", color: str | None = None, alignment: str = "left") -> dict[str, Any]:  # noqa: E501
-    """Build heading module attributes."""
+    """Build heading block attributes (top-level ``title`` + ``module``)."""
     m: dict[str, Any] = {
-        "heading": {
+        "title": {
             "innerContent": {
                 "desktop": {"value": text_content}
             },
-            "level": {"desktop": {"value": level}},
-            "alignment": {"desktop": {"value": alignment}},
-        }
+            "decoration": {
+                "font": {
+                    "font": {
+                        "desktop": {"value": {"headingLevel": level}}
+                    }
+                }
+            },
+        },
+        "module": {
+            "decoration": {
+                "layout": {"desktop": {"value": {"justifyContent": alignment}}}
+            }
+        },
     }
     if color:
-        m["heading"]["color"] = {"desktop": {"value": color}}
+        m["title"]["decoration"]["font"]["font"]["desktop"]["value"]["color"] = color
     return m
 
 
 def heading(text_content: str, level: str = "h2", color: str | None = None, alignment: str = "left", **attrs: Any) -> str:  # noqa: E501
     """Create a divi/heading block."""
-    m = {"module": _heading_module(text_content, level, color, alignment)}
+    m = _heading_module(text_content, level, color, alignment)
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/heading", m, is_self_closing=True)
@@ -252,7 +287,7 @@ def heading(text_content: str, level: str = "h2", color: str | None = None, alig
 
 
 def _button_module(text_content: str, url: str, color: str = "#e8cb90", alignment: str = "center") -> dict[str, Any]:  # noqa: E501
-    """Build button module attributes."""
+    """Build button block attributes (top-level ``button`` + ``module``)."""
     return {
         "button": {
             "innerContent": {
@@ -266,13 +301,18 @@ def _button_module(text_content: str, url: str, color: str = "#e8cb90", alignmen
                 "phone": {"value": {"width": "100%", "minWidth": "0"}},
                 "phoneWide": {"value": {"width": "100%", "minWidth": "0"}},
             },
-        }
+        },
+        "module": {
+            "decoration": {
+                "layout": {"desktop": {"value": {"display": "flex"}}}
+            }
+        },
     }
 
 
 def button(text_content: str, url: str, color: str = "#e8cb90", alignment: str = "center", **attrs: Any) -> str:  # noqa: E501
     """Create a divi/button block."""
-    m = {"module": _button_module(text_content, url, color, alignment)}
+    m = _button_module(text_content, url, color, alignment)
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/button", m, is_self_closing=True)
@@ -284,21 +324,30 @@ def button(text_content: str, url: str, color: str = "#e8cb90", alignment: str =
 
 
 def _image_module(src: str, alt: str = "", link: str | None = None) -> dict[str, Any]:
-    """Build image module attributes."""
+    """Build image block attributes (top-level ``image`` + ``module``)."""
     m: dict[str, Any] = {
         "image": {
-            "src": {"desktop": {"value": src}},
-            "alt": {"desktop": {"value": alt}},
-        }
+            "innerContent": {
+                "desktop": {"value": {"src": src, "alt": alt}}
+            }
+        },
+        "module": {
+            "decoration": {
+                "attributes": {
+                    "attributes": [],
+                    "desktop": {"value": {"attributes": []}},
+                }
+            }
+        },
     }
     if link:
-        m["image"]["link"] = {"desktop": {"value": link}}
+        m["image"]["innerContent"]["desktop"]["value"]["link"] = link
     return m
 
 
 def image(src: str, alt: str = "", link: str | None = None, **attrs: Any) -> str:
     """Create a divi/image block."""
-    m = {"module": _image_module(src, alt, link)}
+    m = _image_module(src, alt, link)
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/image", m, is_self_closing=True)
@@ -310,7 +359,7 @@ def image(src: str, alt: str = "", link: str | None = None, **attrs: Any) -> str
 
 
 def _divider_module(style: str = "solid", alignment: str = "center", color: str | None = None) -> dict[str, Any]:  # noqa: E501
-    """Build divider module attributes."""
+    """Build divider block attributes (top-level ``divider`` + ``module``)."""
     m: dict[str, Any] = {
         "divider": {
             "decoration": {
@@ -318,7 +367,14 @@ def _divider_module(style: str = "solid", alignment: str = "center", color: str 
                     "desktop": {"value": {"style": style, "alignment": alignment}}
                 }
             }
-        }
+        },
+        "module": {
+            "decoration": {
+                "spacing": {
+                    "desktop": {"value": {"margin": {"top": "1em", "bottom": "1em"}}}
+                }
+            }
+        },
     }
     if color:
         m["divider"]["decoration"]["divider"]["desktop"]["value"]["color"] = color
@@ -327,7 +383,7 @@ def _divider_module(style: str = "solid", alignment: str = "center", color: str 
 
 def divider(style: str = "solid", alignment: str = "center", color: str | None = None, **attrs: Any) -> str:  # noqa: E501
     """Create a divi/divider block."""
-    m = {"module": _divider_module(style, alignment, color)}
+    m = _divider_module(style, alignment, color)
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/divider", m, is_self_closing=True)
@@ -339,27 +395,46 @@ def divider(style: str = "solid", alignment: str = "center", color: str | None =
 
 
 def _blurb_module(title: str, content: str, icon: str | None = None, image: str | None = None, url: str | None = None) -> dict[str, Any]:  # noqa: E501
-    """Build blurb module attributes."""
+    """Build blurb block attributes (top-level title/content/imageIcon + module)."""
     m: dict[str, Any] = {
-        "blurb": {
-            "innerContent": {
-                "desktop": {"value": content}
-            },
-            "title": {"desktop": {"value": title}},
-        }
+        "title": {
+            "innerContent": {"desktop": {"value": title}},
+            "decoration": {"font": {"font": {"desktop": {"value": {"headingLevel": "h4"}}}}},
+        },
+        "content": {
+            "innerContent": {"desktop": {"value": content}}
+        },
+        "module": {
+            "decoration": {
+                "layout": {"desktop": {"value": {"justifyContent": "center"}}}
+            }
+        },
     }
     if icon:
-        m["blurb"]["icon"] = {"desktop": {"value": icon}}
+        m["imageIcon"] = {
+            "innerContent": {
+                "desktop": {
+                    "value": {
+                        "useIcon": "on",
+                        "icon": {"unicode": icon, "type": "fa", "weight": "900"},
+                    }
+                }
+            }
+        }
     if image:
-        m["blurb"]["image"] = {"desktop": {"value": {"src": image}}}
+        m["imageIcon"] = {
+            "innerContent": {
+                "desktop": {"value": {"src": image, "useIcon": "off"}}
+            }
+        }
     if url:
-        m["blurb"]["url"] = {"desktop": {"value": url}}
+        m.setdefault("module", {})["link"] = {"desktop": {"value": url}}
     return m
 
 
 def blurb(title: str, content: str, icon: str | None = None, image: str | None = None, url: str | None = None, **attrs: Any) -> str:  # noqa: E501
     """Create a divi/blurb block."""
-    m = {"module": _blurb_module(title, content, icon, image, url)}
+    m = _blurb_module(title, content, icon, image, url)
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/blurb", m, is_self_closing=True)
