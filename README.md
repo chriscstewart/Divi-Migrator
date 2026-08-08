@@ -279,21 +279,22 @@ Visual Builder or self-heal if DiviOps ever renders them. If you need
 backgrounds applied immediately, set them manually per section/row in the
 Divi editor after migration.
 
-### Post Creation Bypasses DiviOps (by design)
+### Post & Page Creation Bypass DiviOps (by design)
 
-Posts are **created via the WordPress REST `posts` endpoint**, not DiviOps:
+Both posts and pages are **created via the WordPress REST endpoints**
+(`posts` / `pages`), not DiviOps:
 
-- `create_content` calls `self.wp.post("posts", ...)` to create the draft
-  (correct post-type, raw block markup stored in `post_content`).
-- DiviOps is used **only** to apply the Divi 5 block structure afterward
-  (`page/update-content/{id}`), since the posts endpoint stores raw HTML and
-  does not parse Divi builder data.
-- Pages still use the DiviOps `page/create` endpoint (page-only; the posts
-  endpoint cannot create pages).
+- `create_content` calls `self.wp.post("posts"|"pages", ...)` to create the
+  draft (correct post-type, block markup stored in `post_content`). Divi 5
+  renders block markup directly from `post_content`, so this is the reliable
+  creation path.
+- DiviOps `update_page_content` is attempted as a **best-effort enrichment**
+  only (it may 500 on large payloads on shared hosting) and is **not required**
+  for rendering.
 
-This split is deliberate: DiviOps `page/create` is page-only and unreliable
-for post-types, so post creation goes through WP REST directly while DiviOps
-handles the block application. (See `core/client.py::create_content`.)
+Pages previously used DiviOps `page/create`, but that endpoint 500s on large
+payloads (shared hosting), leaving pages as empty placeholders. Routing page
+creation through WP REST fixed that. (See `core/client.py::create_content`.)
 
 ---
 

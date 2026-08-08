@@ -383,8 +383,12 @@ class DiviOpsClient:
 
         Posts are created via the WP REST 'posts' endpoint (post-type correct)
         and then have their Divi block content pushed through DiviOps so they
-        render in Divi 5. Pages use the DiviOps 'page/create' endpoint (which
-        is page-only and ignores any 'type' field).
+        render in Divi 5. Pages are created the same way via the WP REST
+        'pages' endpoint: Divi 5 renders block markup directly from
+        post_content, so this avoids DiviOps' headless 'page/create' endpoint,
+        which 500s on large payloads on shared hosting. DiviOps
+        update_page_content is attempted as a best-effort enrichment (it may
+        500 on big pages) but is not required for rendering.
 
         Returns a normalized dict: {"ok": True, "id": <id>, "data": {"page_id": <id>}}.
         """
@@ -393,17 +397,21 @@ class DiviOpsClient:
                 "posts",
                 json_data={"title": title, "content": content, "status": status},
             )
-            post_id = created.get("id") if isinstance(created, dict) else None
-            if not post_id:
-                return {"ok": False, "error": "Failed to create post", "data": created}
-            # Ensure Divi 5 block content is applied (posts endpoint stores raw HTML).
+        else:
+            created = self.wp.post(
+                "pages",
+                json_data={"title": title, "content": content, "status": status},
+            )
+        post_id = created.get("id") if isinstance(created, dict) else None
+        if not post_id:
+            return {"ok": False, "error": f"Failed to create {post_type}", "data": created}
+        # Best-effort DiviOps block application (large payloads may 500 on
+        # shared hosting; not required since Divi 5 renders from post_content).
+        try:
             self.update_page_content(post_id, content)
-            return {"ok": True, "id": post_id, "data": {"page_id": post_id}}
-
-        return self.post(
-            "page/create",
-            json_data={"title": title, "content": content, "status": status, "type": post_type},
-        )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"DiviOps update_page_content skipped for {post_type} {post_id}: {exc}")
+        return {"ok": True, "id": post_id, "data": {"page_id": post_id}}
 
     def update_page_content(self, page_id: int, content: str) -> dict[str, Any]:
         """Update page content via DiviOps."""
