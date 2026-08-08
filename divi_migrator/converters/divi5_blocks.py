@@ -210,6 +210,19 @@ def column(inner: str, layout: str = "4_4", module: dict[str, Any] | None = None
 # =============================================================================
 
 
+def linkify_bare_urls(html: str) -> str:
+    """Turn bare URLs in text into clickable <a> links.
+
+    Only links a URL when it is NOT already inside an existing attribute
+    (href/src) or inside an <a> tag (preceded by >). Existing links and image
+    src URLs are left untouched.
+    """
+    # Negative lookbehind: not preceded by a quote/=/angle that would mean the
+    # URL is already part of an attribute or an existing anchor's text.
+    pattern = r'(?<!["\'=>])(https?://[^\s<>"\']+)'
+    return re.sub(pattern, r'<a href="\1">\1</a>', html)
+
+
 def _text_module(html: str) -> dict[str, Any]:
     """Build text block attributes (top-level ``content`` + ``module``)."""
     return {
@@ -239,7 +252,7 @@ def _text_module(html: str) -> dict[str, Any]:
 
 def text(html: str, **attrs: Any) -> str:
     """Create a divi/text block."""
-    m = _text_module(html)
+    m = _text_module(linkify_bare_urls(html))
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/text", m, is_self_closing=True)
