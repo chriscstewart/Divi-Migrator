@@ -24,7 +24,7 @@ class AvadaConverter(BaseConverter):
         r"\[fusion_builder_column[^\]]*\](.*?)\[/fusion_builder_column\]", re.DOTALL
     )
     TEXT_PATTERN = re.compile(r"\[fusion_text[^\]]*\](.*?)\[/fusion_text\]", re.DOTALL)
-    TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\](.*?)\[/fusion_title\]", re.DOTALL)
+    TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\](?:.*?\[/fusion_title\])?", re.DOTALL)
     BUTTON_PATTERN = re.compile(
         r"\[fusion_button\b[^\]]*\](.*?)(?:\[/fusion_button\])?", re.DOTALL
     )
@@ -37,7 +37,9 @@ class AvadaConverter(BaseConverter):
     )
     MAP_PATTERN = re.compile(r"\[fusion_map[^\]]*\](?:.*?\[/fusion_map\])?", re.DOTALL)
     VIDEO_PATTERN = re.compile(r"\[fusion_video\b[^\]]*\](?:.*?\[/fusion_video\])?", re.DOTALL)
-    GALLERY_PATTERN = re.compile(r"\[fusion_gallery[^\]]*\]", re.DOTALL)
+    GALLERY_PATTERN = re.compile(
+        r"\[fusion_gallery[^\]]*\](.*?)\[/fusion_gallery\]", re.DOTALL
+    )
     TABS_PATTERN = re.compile(r"\[fusion_tabs[^\]]*\](.*?)\[/fusion_tabs\]", re.DOTALL)
     TAB_PATTERN = re.compile(r"\[fusion_tab[^\]]*\](.*?)\[/fusion_tab\]", re.DOTALL)
     TOGGLES_PATTERN = re.compile(r"\[fusion_toggles[^\]]*\](.*?)\[/fusion_toggles\]", re.DOTALL)
@@ -68,7 +70,7 @@ class AvadaConverter(BaseConverter):
         r"\[fusion_content_box[^\]]*\](?:.*?\[/fusion_content_box\])?", re.DOTALL
     )
     CONTENT_BOXES_PATTERN = re.compile(r"\[fusion_content_boxes[^\]]*\](.*?)\[/fusion_content_boxes\]", re.DOTALL)  # noqa: E501
-    FAQ_PATTERN = re.compile(r"\[fusion_faq[^\]]*\](.*?)\[/fusion_faq\]", re.DOTALL)
+    FAQ_PATTERN = re.compile(r"\[fusion_faq[^\]]*\](?:.*?\[/fusion_faq\])?", re.DOTALL)
     FAQ_ITEM_PATTERN = re.compile(r"\[fusion_faq_item[^\]]*\](.*?)\[/fusion_faq_item\]", re.DOTALL)
     COUNTDOWN_PATTERN = re.compile(
         r"\[fusion_countdown[^\]]*\](?:.*?\[/fusion_countdown\])?", re.DOTALL
@@ -80,7 +82,8 @@ class AvadaConverter(BaseConverter):
     CONTENT_BOX_ITEM_PATTERN = re.compile(r"\[fusion_content_box[^\]]*]", re.DOTALL)
     LINK_PATTERN = re.compile(r"\[fusion_link[^\]]*]", re.DOTALL)
     IMAGES_PATTERN = re.compile(r"\[fusion_images[^\]]*]", re.DOTALL)
-    SOCIAL_LINKS_PATTERN = re.compile(r"\[fusion_social_links[^\]]*]", re.DOTALL)
+    SOCIAL_LINKS_PATTERN = re.compile(r"\[fusion_social_links[^\]]*\]", re.DOTALL)
+    EVENTS_PATTERN = re.compile(r"\[fusion_events[^\]]*\]", re.DOTALL)
 
     # Column fraction to Divi layout mapping
     COLUMN_MAP = {
@@ -448,6 +451,13 @@ class AvadaConverter(BaseConverter):
         inner_content = self.CODE_PATTERN.sub(self._convert_code_to_block, inner_content)
         inner_content = self.RAW_PATTERN.sub(self._convert_raw_to_block, inner_content)
         inner_content = self.ICON_PATTERN.sub(self._convert_fontawesome_to_block, inner_content)
+        # Newly-covered shortcodes that previously hit the silent strip list
+        inner_content = self.GALLERY_PATTERN.sub(self._convert_gallery_to_block, inner_content)
+        inner_content = self.IMAGES_PATTERN.sub(self._convert_images_to_block, inner_content)
+        inner_content = self.SOCIAL_LINKS_PATTERN.sub(
+            self._convert_social_links_to_block, inner_content
+        )
+        inner_content = self.EVENTS_PATTERN.sub(self._convert_events_to_block, inner_content)
 
         # Clean remaining fusion shortcodes
         patterns = [
@@ -487,6 +497,17 @@ class AvadaConverter(BaseConverter):
             r"\[fusion_images[^\]]*\]",
             r"\[fusion_social_links[^\]]*\]",
             r"\[fusion_social_link[^\]]*\]",
+            r"\[fusion_gallery[^\]]*\]",
+            r"\[fusion_gallery_image[^\]]*\]",
+            r"\[fusion_images[^\]]*\]",
+            r"\[fusion_events[^\]]*\]",            r"\[/fusion_images\]",
+            r"\[fusion_woo_shortcodes[^\]]*\]",
+            r"\[/fusion_woo_shortcodes\]",
+            r"\[/fusion_title\]",
+            r"\[/fusion_faq\]",
+            r"\[/fusion_content_box\]",
+            r"\[/fusion_testimonial\]",
+
             # Closing-tag backstops (in case any module's open/close pair slips through)
             r"\[/fusion_button\]",
             r"\[/fusion_imageframe\]",
@@ -532,7 +553,9 @@ class AvadaConverter(BaseConverter):
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
-        title_text = attrs.get("title", match.group(1).strip())
+        title_text = attrs.get("title", "")
+        if not title_text and match.lastindex:
+            title_text = match.group(1).strip()
         size = attrs.get("size", "")
         color = attrs.get("color", "")
         alignment = attrs.get("alignment", "left")
@@ -861,7 +884,7 @@ class AvadaConverter(BaseConverter):
         """
         from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
 
-        inner = match.group(1)
+        inner = match.group(1) if match.lastindex else match.group(0)
         faq_items = []
         for m in self.FAQ_ITEM_PATTERN.finditer(inner):
             item_attrs = self.extract_all_attrs(m.group(0))
@@ -1053,6 +1076,111 @@ class AvadaConverter(BaseConverter):
         size = attrs.get("size", "")
         size_attr = f' style="font-size:{size};"' if size else ""
         return text(f'<i class="{classes}" aria-hidden="true"{size_attr}></i>')
+
+    def _convert_gallery_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_gallery (+ fusion_gallery_image children) to a native
+        <img> grid inside a divi/text block.
+
+        The divi/gallery module does not render from raw post_content markup on
+        this host, so we emit resolved <img> tags inside a divi/text block.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        inner = match.group(1) if match.lastindex else match.group(0)
+        # fusion_gallery wraps [fusion_gallery_image image_id="..." /] children
+        imgs = []
+        for m in re.finditer(
+            r"\[fusion_gallery_image\b([^\]]*)/?\]", inner, re.DOTALL
+        ):
+            attrs = self.extract_all_attrs(m.group(0))
+            image_id = attrs.get("image_id", "") or attrs.get("image", "")
+            img_src = self._resolve_image_src(image_id)
+            if img_src:
+                alt = attrs.get("alt", "")
+                imgs.append(f'<img src="{img_src}" alt="{alt}" loading="lazy" />')
+        if not imgs:
+            return ""
+        return text(f'<div class="fusion-gallery">{"" .join(imgs)}</div>')
+
+    def _convert_images_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_images image-set/carousel to a native placeholder.
+
+        fusion_images is a dynamic image carousel that pulls media from the
+        library by criteria (no image data inside the shortcode itself), so there
+        is no static content to render. We emit a native HTML notice rather than
+        silently dropping it, so the editor knows a gallery existed here.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        attrs = self.extract_all_attrs(match.group(0))
+        cols = attrs.get("columns", "").strip() or "multiple"
+        return text(
+            f'<div class="fusion-images-placeholder">'
+            f'Image gallery ({cols} columns) — view the media library for these images.'
+            f'</div>'
+        )
+
+    def _convert_social_links_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_social_links to a native row of <a> icons in divi/text.
+
+        The divi/social-media-follow module does not render from raw post_content
+        on this host, so we emit anchor links inside a divi/text block.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        full = match.group(0)
+        attrs = self.extract_all_attrs(full)
+        # Avada stores each network as an attribute: facebook="https://...", etc.
+        known = [
+            "blogger", "deviantart", "digg", "dribbble", "dropbox", "facebook",
+            "flickr", "forrst", "googleplus", "instagram", "linkedin", "myspace",
+            "pinterest", "reddit", "rss", "skype", "snapchat", "soundcloud",
+            "spotify", "tiktok", "tumblr", "twitch", "twitter", "vimeo",
+            "vk", "wechat", "whatsapp", "xing", "yahoo", "yelp", "youtube",
+        ]
+        links = []
+        for net in known:
+            val = attrs.get(net, "").strip()
+            if val:
+                # Avada icon names use 'fusion-...'; emit a labelled link.
+                label = net.replace("googleplus", "google+").title()
+                links.append(
+                    f'<a class="social-link social-{net}" href="{val}" '
+                    f'target="_blank" rel="noopener">{label}</a>'
+                )
+        if not links:
+            return ""
+        return text(f'<div class="fusion-social-links">{"".join(links)}</div>')
+
+    def _convert_events_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_events (dynamic event query) to a static fallback notice.
+
+        fusion_events runs a live WP_Query for events; Divi 5 has no equivalent
+        static module that renders from raw post_content, and we cannot resolve a
+        live query at convert time. We emit a native HTML notice pointing at the
+        events archive so the content is preserved as a navigable link rather
+        than silently dropped.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        attrs = self.extract_all_attrs(match.group(0))
+        cat = attrs.get("cat_slug", "").strip()
+        base = ""
+        if self.wp_client is not None:
+            base = getattr(self.wp_client, "base_url", "") or getattr(
+                self.wp_client, "_url", ""
+            )
+        base = base.rstrip("/")
+        if cat:
+            href = f"{base}/events/category/{cat}/"
+            label = f"View {cat} events"
+        else:
+            href = f"{base}/events/"
+            label = "View all events"
+        return text(
+            f'<div class="fusion-events-placeholder">'
+            f'<a href="{href}">{label}</a></div>'
+        )
 
     def extract_assets(self, content: str) -> ExtractedAssets:
         """Extract images, buttons, forms from Avada content."""

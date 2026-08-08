@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import os
 import sys
+import re
 import json
 import yaml
 from pathlib import Path
+from typing import Any
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -25,6 +27,7 @@ from divi_migrator.core.inspector import fetch_design_system
 from divi_migrator.core.orchestrator import MigrationOrchestrator
 from divi_migrator.core.audit import AuditManager
 from divi_migrator.core.audit_guard import AuditGuard
+from divi_migrator.converters.avada import AvadaConverter
 from divi_migrator.credentials import (
     load_config as load_credentials,
     CredentialError,
@@ -495,6 +498,81 @@ def inspect(
 
     console.print(f"[green]Variables:[/green] {len(ds.variables.variables)}")
     console.print(f"[green]Custom CSS:[/green] {len(ds.custom_css)} chars")
+
+
+@app.command()
+def preflight(
+    ctx: typer.Context,
+    post_type: str = typer.Option("page", "--type", "-t", help="Post type: page or post"),
+    config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
+) -> None:
+    """Pre-flight loss audit: list exactly which Avada shortcodes would be silently
+    stripped on a full migration.
+
+    Scans every item, runs the converter, and reports any `fusion_*` shortcode that
+    survives conversion (i.e. would be deleted by the cleanup-strip list). This is
+    the red-team check before pointing the migrator at the whole site.
+    """
+    non_interactive = get_non_interactive(ctx)
+    cfg = load_config(config, non_interactive=non_interactive)
+    orch = MigrationOrchestrator(cfg)
+    orch.wp.audit_guard = AuditGuard(orch.audit)
+
+    ds = orch._get_design_system()  # noqa: SLF001
+
+    console.print(f"[bold]Pre-flight loss scan: {post_type}s[/bold]")
+    page = 1
+    per_page = 50
+    total = 0
+    items_with_loss = 0
+    loss_by_shortcode: dict[str, int] = {}
+    while True:
+        raw_items: Any = orch.wp.get(
+            post_type + "s",
+            params={
+                "per_page": per_page,
+                "page": page,
+                "context": "edit",
+                "_fields": "id,title,content",
+            },
+        )
+        items: list[dict[str, Any]] = list(raw_items) if raw_items else []
+        if not items:
+            break
+        for item in items:
+            content = item.get("content", {}).get("rendered", "")
+            if "fusion_" not in content:
+                continue
+            conv = AvadaConverter()
+            converted = conv.convert(content, item["id"], ds, wp_client=orch.wp)
+            # Any fusion_ shortcode surviving in the output = would be stripped
+            survivors = set(re.findall(r"\[/?fusion_([a-z_]+)", converted))
+            if survivors:
+                items_with_loss += 1
+                names = sorted(survivors)
+                for n in names:
+                    loss_by_shortcode[n] = loss_by_shortcode.get(n, 0) + 1
+                console.print(
+                    f"  [red]{post_type} {item['id']}[/red] "
+                    f"({item.get('title', {}).get('rendered', '?')}): "
+                    f"{', '.join(names)}"
+                )
+        total += len(items)
+        if len(items) < per_page:
+            break
+        page += 1
+
+    console.print()
+    console.print(f"[bold]Scanned:[/bold] {total} {post_type}s")
+    if items_with_loss == 0:
+        console.print("[green]No silent content loss detected — all Avada shortcodes are covered.[/green]")  # noqa: E501
+    else:
+        console.print(
+            f"[red]{items_with_loss} {post_type}(s) would lose content.[/red] "
+            f"Shortcodes at risk:"
+        )
+        for sc, cnt in sorted(loss_by_shortcode.items(), key=lambda x: -x[1]):
+            console.print(f"  [yellow]fusion_{sc}[/yellow]: {cnt} occurrence(s)")
 
 
 @app.command()
