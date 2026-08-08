@@ -179,7 +179,12 @@ class TestAvadaConverter:
         assert "Great service" in result
 
     def test_person_conversion(self, converter):
-        """Test person conversion to team_member."""
+        """Test person conversion to a native HTML profile card in divi/text.
+
+        divi/team-member does not render from raw post_content markup on this
+        host, so a native HTML card (name, title, bio) inside divi/text is
+        emitted instead.
+        """
         content = (
             "[fusion_builder_container][fusion_builder_row]"
             '[fusion_builder_column][fusion_person name="Jane Smith" '
@@ -189,9 +194,12 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        # Should use team_member module
-        assert ("wp:divi/team-member" in result) or ("wp:divi/blurb" in result)
+        # Native HTML card inside divi/text (no team-member module).
+        assert "wp:divi/text" in result
+        assert "wp:divi/team-member" not in result
         assert "Jane Smith" in result
+        assert "person-card" in result
+        assert "CEO" in result
 
     def test_image_conversion(self, converter):
         """Test imageframe conversion to a native <img> in a divi/text block.

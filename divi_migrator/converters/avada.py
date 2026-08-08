@@ -32,8 +32,10 @@ class AvadaConverter(BaseConverter):
         r"\[fusion_imageframe\b[^\]]*\](?:.*?\[/fusion_imageframe\])?", re.DOTALL
     )
     SEPARATOR_PATTERN = re.compile(r"\[fusion_separator[^\]]*\]", re.DOTALL)
-    ICON_PATTERN = re.compile(r"\[fusion_fontawesome[^\]]*\]", re.DOTALL)
-    MAP_PATTERN = re.compile(r"\[fusion_map[^\]]*\]", re.DOTALL)
+    ICON_PATTERN = re.compile(
+        r"\[fusion_fontawesome[^\]]*\](?:.*?\[/fusion_fontawesome\])?", re.DOTALL
+    )
+    MAP_PATTERN = re.compile(r"\[fusion_map[^\]]*\](?:.*?\[/fusion_map\])?", re.DOTALL)
     VIDEO_PATTERN = re.compile(r"\[fusion_video\b[^\]]*\](?:.*?\[/fusion_video\])?", re.DOTALL)
     GALLERY_PATTERN = re.compile(r"\[fusion_gallery[^\]]*\]", re.DOTALL)
     TABS_PATTERN = re.compile(r"\[fusion_tabs[^\]]*\](.*?)\[/fusion_tabs\]", re.DOTALL)
@@ -46,8 +48,10 @@ class AvadaConverter(BaseConverter):
     ACCORDION_ITEM_PATTERN = re.compile(
         r"\[fusion_accordion_item[^\]]*\](.*?)\[/fusion_accordion_item\]", re.DOTALL
     )
-    PERSON_PATTERN = re.compile(r"\[fusion_person[^\]]*\]", re.DOTALL)
-    TESTIMONIAL_PATTERN = re.compile(r"\[fusion_testimonial[^\]]*\]", re.DOTALL)
+    PERSON_PATTERN = re.compile(r"\[fusion_person[^\]]*\](?:.*?\[/fusion_person\])?", re.DOTALL)
+    TESTIMONIAL_PATTERN = re.compile(
+        r"\[fusion_testimonial[^\]]*\](.*?)(?:\[/fusion_testimonial\])?", re.DOTALL
+    )
     PRICING_TABLE_PATTERN = re.compile(
         r"\[fusion_pricing_table[^\]]*\](.*?)\[/fusion_pricing_table\]", re.DOTALL
     )
@@ -59,12 +63,16 @@ class AvadaConverter(BaseConverter):
 
     YOUTUBE_PATTERN = re.compile(r"\[fusion_youtube\b[^\]]*\](?:.*?\[/fusion_youtube\])?", re.DOTALL)  # noqa: E501
     VIMEO_PATTERN = re.compile(r"\[fusion_vimeo[^\]]*]", re.DOTALL)
-    TESTIMONIALS_PATTERN = re.compile(r"\[fusion_testimonials[^\]]*](.*?)[/fusion_testimonials]", re.DOTALL)  # noqa: E501
-    CONTENT_BOX_PATTERN = re.compile(r"\[fusion_content_box[^\]]*]", re.DOTALL)
-    CONTENT_BOXES_PATTERN = re.compile(r"\[fusion_content_boxes[^\]]*](.*?)[/fusion_content_boxes]", re.DOTALL)  # noqa: E501
-    FAQ_PATTERN = re.compile(r"\[fusion_faq[^\]]*](.*?)[/fusion_faq]", re.DOTALL)
-    FAQ_ITEM_PATTERN = re.compile(r"\[fusion_faq_item[^\]]*](.*?)[/fusion_faq_item]", re.DOTALL)
-    COUNTDOWN_PATTERN = re.compile(r"\[fusion_countdown[^\]]*]", re.DOTALL)
+    TESTIMONIALS_PATTERN = re.compile(r"\[fusion_testimonials[^\]]*\](.*?)\[/fusion_testimonials\]", re.DOTALL)  # noqa: E501
+    CONTENT_BOX_PATTERN = re.compile(
+        r"\[fusion_content_box[^\]]*\](?:.*?\[/fusion_content_box\])?", re.DOTALL
+    )
+    CONTENT_BOXES_PATTERN = re.compile(r"\[fusion_content_boxes[^\]]*\](.*?)\[/fusion_content_boxes\]", re.DOTALL)  # noqa: E501
+    FAQ_PATTERN = re.compile(r"\[fusion_faq[^\]]*\](.*?)\[/fusion_faq\]", re.DOTALL)
+    FAQ_ITEM_PATTERN = re.compile(r"\[fusion_faq_item[^\]]*\](.*?)\[/fusion_faq_item\]", re.DOTALL)
+    COUNTDOWN_PATTERN = re.compile(
+        r"\[fusion_countdown[^\]]*\](?:.*?\[/fusion_countdown\])?", re.DOTALL
+    )
     CHECKLIST_PATTERN = re.compile(r"\[fusion_checklist[^\]]*]", re.DOTALL)
     CHECKLIST_FULL_PATTERN = re.compile(r"\[fusion_checklist\b.*?\[/fusion_checklist\]", re.DOTALL)
     CHECKLIST_ITEM_PATTERN = re.compile(r"\[fusion_li_item\b.*?\[/fusion_li_item\]", re.DOTALL)
@@ -434,6 +442,12 @@ class AvadaConverter(BaseConverter):
         inner_content = self.COUNTDOWN_PATTERN.sub(self._convert_countdown_to_block, inner_content)
         inner_content = self.CHECKLIST_FULL_PATTERN.sub(self._convert_checklist_to_block, inner_content)  # noqa: E501
         inner_content = self.BLOG_PATTERN.sub(self._convert_blog_to_block, inner_content)
+        # Native-HTML converters (modules that don't render from raw post_content)
+        inner_content = self.ACCORDION_PATTERN.sub(self._convert_accordion_to_block, inner_content)
+        inner_content = self.TOGGLES_PATTERN.sub(self._convert_accordion_to_block, inner_content)
+        inner_content = self.CODE_PATTERN.sub(self._convert_code_to_block, inner_content)
+        inner_content = self.RAW_PATTERN.sub(self._convert_raw_to_block, inner_content)
+        inner_content = self.ICON_PATTERN.sub(self._convert_fontawesome_to_block, inner_content)
 
         # Clean remaining fusion shortcodes
         patterns = [
@@ -479,6 +493,22 @@ class AvadaConverter(BaseConverter):
             r"\[/fusion_video\]",
             r"\[/fusion_youtube\]",
             r"\[/fusion_vimeo\]",
+            r"\[/fusion_person\]",
+            r"\[/fusion_testimonial\]",
+            r"\[/fusion_testimonials\]",
+            r"\[/fusion_content_box\]",
+            r"\[/fusion_content_boxes\]",
+            r"\[/fusion_faq\]",
+            r"\[/fusion_faq_item\]",
+            r"\[/fusion_tabs\]",
+            r"\[/fusion_tab\]",
+            r"\[/fusion_accordion\]",
+            r"\[/fusion_toggle\]",
+            r"\[/fusion_countdown\]",
+            r"\[/fusion_code\]",
+            r"\[/fusion_raw\]",
+            r"\[/fusion_fontawesome\]",
+            r"\[/fusion_map\]",
         ]
         for pattern in patterns:
             inner_content = re.sub(pattern, "", inner_content, flags=re.DOTALL)
@@ -650,7 +680,10 @@ class AvadaConverter(BaseConverter):
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
-        vid_url = attrs.get("mp4", "") or attrs.get("webm", "") or attrs.get("ogv", "")
+        vid_url = (
+            attrs.get("src", "") or attrs.get("mp4", "")
+            or attrs.get("webm", "") or attrs.get("ogv", "")
+        )
         if vid_url:
             return text(
                 f'<p><video width="640" height="360" controls>'
@@ -736,27 +769,44 @@ class AvadaConverter(BaseConverter):
         return placeholder(section("".join(rows)))
 
     def _convert_person_to_block(self, match: re.Match[str]) -> str:
-        from divi_migrator.converters.divi5_blocks import team_member  # noqa: PLC0415
+        """Convert fusion_person to a native HTML profile card in a divi/text block.
+
+        The divi/team-member module does not render from raw post_content
+        markup on this host, so we emit semantic HTML (name, title, bio,
+        social links) inside a divi/text block, which renders reliably.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
         name = attrs.get("name", "")
         title = attrs.get("title", "") or attrs.get("position", "")
         image = attrs.get("image", "")
-        description = attrs.get("description", "")
-        social = {}
+        description = _clean_html(attrs.get("description", ""))
+        social: list[str] = []
         for key in ["facebook", "twitter", "linkedin", "instagram", "pinterest", "youtube", "vimeo"]:  # noqa: E501
             val = attrs.get(key, "")
             if val:
-                social[key + "Url"] = val
+                social.append(f'<a href="{val}" class="person-social person-{key}" rel="noopener">{key.title()}</a>')  # noqa: E501
 
-        content = description
-        if title:
-            content = f'<p class="person-title">{title}</p>' + content
-
-        return team_member(name=name, position=title, content=content, image=image or "", social=social or None)  # noqa: E501
+        img_html = f'<img src="{image}" alt="{name}" class="person-photo" style="max-width:200px;height:auto;">' if image else ""  # noqa: E501
+        bio = f'<p class="person-bio">{description}</p>' if description else ""
+        title_html = f'<p class="person-title">{title}</p>' if title else ""
+        social_html = f'<p class="person-socials">{" ".join(social)}</p>' if social else ""
+        card = (
+            f'<div class="person-card">'
+            f'{img_html}'
+            f'<h3 class="person-name">{name}</h3>'
+            f'{title_html}'
+            f'{bio}'
+            f'{social_html}'
+            f'</div>'
+        )
+        return text(card)
 
     def _convert_content_box_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_content_box to Divi 5 blurb block (blurb renders)."""
         from divi_migrator.converters.divi5_blocks import blurb  # noqa: PLC0415
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
@@ -770,6 +820,7 @@ class AvadaConverter(BaseConverter):
         return blurb(title=title, content=content, icon=icon if icon else None, image=image if image else None, url=link if link else None)  # noqa: E501
 
     def _convert_content_boxes_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_content_boxes wrapper to Divi blurbs in rows (blurb renders)."""
         from divi_migrator.converters.divi5_blocks import blurb, row, column, section, placeholder  # noqa: PLC0415
         inner = match.group(1)
         boxes = []
@@ -799,55 +850,81 @@ class AvadaConverter(BaseConverter):
             row_blurbs = blurb_blocks[i:i+3]
             col_blocks = [column(b, layout="4_4") for b in row_blurbs]
             rows.append(row("".join(col_blocks)))
-
         return placeholder(section("".join(rows)))
 
     def _convert_faq_to_block(self, match: re.Match[str]) -> str:
-        from divi_migrator.converters.divi5_blocks import accordion, accordion_item  # noqa: PLC0415
+        """Convert fusion_faq (or fusion_toggles) to a native <details> accordion.
+
+        The divi/accordion module does not render from raw post_content markup
+        on this host, so we emit semantic <details>/<summary> HTML inside a
+        divi/text block, which renders reliably.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         inner = match.group(1)
         faq_items = []
-        item_pattern = re.compile(r"\[fusion_faq_item[^\]]*\](.*?)\[/fusion_faq_item\]", re.DOTALL)
-        for m in item_pattern.finditer(inner):
+        for m in self.FAQ_ITEM_PATTERN.finditer(inner):
             item_attrs = self.extract_all_attrs(m.group(0))
-            item_content = m.group(1)
+            item_content = _clean_html(m.group(1))
             faq_items.append({
                 "title": item_attrs.get("title", ""),
-                "content": _clean_html(item_content)
+                "content": item_content,
             })
         if not faq_items:
             return ""
-        accordion_items = []
-        for item in faq_items:
-            accordion_items.append(accordion_item(title=item["title"], content=item["content"]))
-        return accordion("".join(accordion_items))
+        details = "".join(
+            f'<details class="faq-item"><summary>{item["title"]}</summary>'
+            f'<div class="faq-answer">{item["content"]}</div></details>'
+            for item in faq_items
+        )
+        return text(f'<div class="faq-accordion">{details}</div>')
 
     def _convert_tabs_to_block(self, match: re.Match[str]) -> str:
-        from divi_migrator.converters.divi5_blocks import tabs, tab  # noqa: PLC0415
+        """Convert fusion_tabs to a native stacked-panels accordion.
+
+        The divi/tabs module does not render from raw post_content markup on
+        this host, so we emit each tab as a <details> block inside a divi/text
+        block, which renders reliably.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         inner = match.group(1)
         tab_items = []
-        tab_pattern = re.compile(r"\[fusion_tab[^\]]*\](.*?)\[/fusion_tab\]", re.DOTALL)
-        for m in tab_pattern.finditer(inner):
+        for m in self.TAB_PATTERN.finditer(inner):
             tab_attrs = self.extract_all_attrs(m.group(0))
-            tab_content = m.group(1)
+            tab_content = _clean_html(m.group(1))
             tab_items.append({
                 "title": tab_attrs.get("title", ""),
-                "content": _clean_html(tab_content)
+                "content": tab_content,
             })
         if not tab_items:
             return ""
-        tab_blocks = []
-        for item in tab_items:
-            tab_blocks.append(tab(title=item["title"], content=item["content"]))
-        return tabs("".join(tab_blocks))
+        details = "".join(
+            f'<details class="tab-item"><summary>{item["title"]}</summary>'
+            f'<div class="tab-panel">{item["content"]}</div></details>'
+            for item in tab_items
+        )
+        return text(f'<div class="tabs-accordion">{details}</div>')
 
     def _convert_countdown_to_block(self, match: re.Match[str]) -> str:
-        from divi_migrator.converters.divi5_blocks import countdown_timer  # noqa: PLC0415
+        """Convert fusion_countdown to a native date display.
+
+        The divi/countdown-timer module does not render from raw post_content
+        markup on this host, so we emit a styled date banner inside a
+        divi/text block, which renders reliably.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
         date = attrs.get("date", "")
         label = attrs.get("label", "days")
-        separator = attrs.get("separator", "on")
-        return countdown_timer(number=date, label=label, separator=separator)
+        if not date:
+            return ""
+        return text(
+            f'<div class="countdown-banner"><span class="countdown-label">{label}</span>'
+            f'<span class="countdown-date">{date}</span></div>'
+        )
 
     def _convert_checklist_to_block(self, match: re.Match[str]) -> str:
         """Convert a fusion_checklist into a native Divi 5 text-block list.
@@ -879,14 +956,103 @@ class AvadaConverter(BaseConverter):
         return blog()
 
     def _convert_map_to_block(self, match: re.Match[str]) -> str:
-        from divi_migrator.converters.divi5_blocks import map_module  # noqa: PLC0415
+        """Convert fusion_map to a native Google Maps embed iframe in a divi/text block.
+
+        The divi/map module does not render from raw post_content markup on
+        this host, so we emit a Google Maps embed <iframe> inside a divi/text
+        block, which renders reliably.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
-        center: dict[str, float] = {"lat": 0.0, "lng": 0.0}
-        if attrs.get("latitude") and attrs.get("longitude"):
-            center = {"lat": float(attrs["latitude"]), "lng": float(attrs["longitude"])}
-        zoom = int(attrs.get("zoom", 10))
-        return map_module(center=center, zoom=zoom)
+        lat = attrs.get("latitude", "")
+        lng = attrs.get("longitude", "")
+        zoom = int(attrs.get("zoom", 10)) if str(attrs.get("zoom", "")).isdigit() else 10
+        if not lat or not lng:
+            return ""
+        q = attrs.get("address", "") or f"{lat},{lng}"
+        embed_src = (
+            "https://www.google.com/maps?q="
+            f"{q.replace(' ', '+')}&z={zoom}&output=embed"
+        )
+        return text(
+            f'<iframe class="fusion-google-map" width="100%" height="400" '
+            f'src="{embed_src}" title="Google Map" loading="lazy" '
+            f'style="border:0;" allowfullscreen></iframe>'
+        )
+
+    def _convert_accordion_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_accordion (+fusion_toggle items) to native <details>.
+
+        The divi/accordion module does not render from raw post_content markup
+        on this host, so we emit semantic <details>/<summary> HTML inside a
+        divi/text block, which renders reliably.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        inner = match.group(1) if match.lastindex else match.group(0)
+        items = []
+        for m in self.TOGGLE_PATTERN.finditer(inner):
+            item_attrs = self.extract_all_attrs(m.group(0))
+            item_content = _clean_html(m.group(1))
+            items.append({
+                "title": item_attrs.get("title", ""),
+                "content": item_content,
+            })
+        if not items:
+            return ""
+        details = "".join(
+            f'<details class="accordion-item"><summary>{it["title"]}</summary>'
+            f'<div class="accordion-content">{it["content"]}</div></details>'
+            for it in items
+        )
+        return text(f'<div class="accordion-native">{details}</div>')
+
+    def _convert_code_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_code to a native <pre><code> block in a divi/text block.
+
+        There is no dedicated divi/code module that renders reliably here, so we
+        emit the raw code inside <pre><code> within a divi/text block.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        inner = match.group(1).strip() if match.lastindex else ""
+        inner = _clean_html(inner)
+        if not inner:
+            return ""
+        return text(f"<pre><code>{inner}</code></pre>")
+
+    def _convert_raw_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_raw to pass-through HTML in a divi/text block.
+
+        Raw HTML should pass through verbatim; a divi/text block renders it.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        inner = match.group(1).strip() if match.lastindex else ""
+        if not inner:
+            return ""
+        return text(inner)
+
+    def _convert_fontawesome_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_fontawesome to a native <i> icon in a divi/text block.
+
+        The divi/icon module does not render from raw post_content markup on
+        this host, so we emit the Font Awesome <i> tag inside a divi/text block.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        full = match.group(0)
+        attrs = self.extract_all_attrs(full)
+        icon = attrs.get("icon", "")
+        if not icon:
+            return ""
+        # Avada uses 'fa-...' or 'fusion-prefix'; emit a Font Awesome <i>.
+        classes = "fa " + icon if not icon.startswith("fa-") else icon
+        size = attrs.get("size", "")
+        size_attr = f' style="font-size:{size};"' if size else ""
+        return text(f'<i class="{classes}" aria-hidden="true"{size_attr}></i>')
 
     def extract_assets(self, content: str) -> ExtractedAssets:
         """Extract images, buttons, forms from Avada content."""
