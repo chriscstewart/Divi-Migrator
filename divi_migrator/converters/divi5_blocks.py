@@ -73,15 +73,38 @@ def _section_module(bg: dict[str, Any] | None = None, spacing: dict[str, Any] | 
             "spacing": {"desktop": {"value": {}}},
         }
     }
-    # Only attach a background when one is actually supplied. Real Divi 5
-    # omits the `background` key entirely for sections/rows with no background;
-    # an empty `{"desktop": {"value": {}}}` background triggers Divi 5's
-    # background renderer to crash on save/preview.
+    # Real Divi 5 omits the `background` key entirely when there is none. When
+    # present, the value is a canonical object whose `color`/`image` keys are
+    # themselves responsive breakpoint objects (see build_background). An
+    # over-nested or partial background makes Divi 5's background renderer
+    # fatal on save/preview (verified: array_keys() crash on malformed bg).
     if bg:
-        m["decoration"]["background"] = {"desktop": {"value": bg}}
+        m["decoration"]["background"] = bg
     if spacing:
         m["decoration"]["spacing"]["desktop"]["value"] = spacing
     return m
+
+
+def build_background(
+    color: str | None = None,
+    image_url: str | None = None,
+) -> dict[str, Any] | None:
+    """Build a canonical Divi 5 background object.
+
+    Divi 5 expects `color`/`image` as direct children of `background`, each a
+    responsive breakpoint object:
+        {"color": {"desktop": {"value": "#770000"}}}
+        {"image": {"desktop": {"value": {"src": URL, "url": URL}}}}
+    Returns None when neither is supplied (callers then omit the key).
+    """
+    if not color and not image_url:
+        return None
+    bg: dict[str, Any] = {}
+    if color:
+        bg["color"] = {"desktop": {"value": color}}
+    if image_url:
+        bg["image"] = {"desktop": {"value": {"src": image_url, "url": image_url}}}
+    return bg
 
 
 def section(
@@ -92,9 +115,8 @@ def section(
     **attrs: Any,
 ) -> str:
     """Create a divi/section block."""
-    bg: dict[str, Any] | None = {"color": bg_color} if bg_color else None
-    if bg_image:
-        bg = bg_image
+    img = bg_image.get("src") if isinstance(bg_image, dict) else bg_image
+    bg = build_background(color=bg_color, image_url=img)
     m = {"module": _section_module(bg, spacing)}
     if attrs:
         m = _deep_merge(m, attrs)
@@ -162,11 +184,8 @@ def row_flex(
     **attrs: Any,
 ) -> str:
     """Create a flex row with optional background."""
-    bg: dict[str, Any] | None = None
-    if background_color:
-        bg = {"color": background_color}
-    if background_image:
-        bg = background_image
+    img = background_image.get("src") if isinstance(background_image, dict) else background_image
+    bg = build_background(color=background_color, image_url=img)
     m = {"module": _row_module(column_structure, flex, background=bg)}
     if attrs:
         m = _deep_merge(m, attrs)

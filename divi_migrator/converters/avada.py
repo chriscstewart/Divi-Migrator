@@ -319,17 +319,19 @@ class AvadaConverter(BaseConverter):
             section, placeholder
         )
 
+        full = match.group(0)
         inner = match.group(1)
 
         rows = self.ROW_PATTERN.findall(inner)
 
-        # Section background
-        # NOTE: Emitting ANY background object triggers a fatal PHP error in this
-        # host's Divi 5 save handler (verified: 7205 POST with bg -> 500, without
-        # bg -> 201). Real Divi 5 omits the `background` key when there is none.
-        # Source backgrounds are a tracked follow-up; for now we omit them so the
-        # migration is crash-free. Source values available via container_attrs
-        # ("background_image" / "background_color") for a later host-safe pass.
+        # Section background (canonical Divi 5 shape via build_background,
+        # called inside section()). Real Divi 5 omits the `background` key
+        # when there is none; when a source Avada container has a color/image
+        # we migrate it. Shape verified live (colored bg section creates
+        # without the earlier array_keys() save-handler fatal).
+        container_attrs = self.extract_container_attrs(full)
+        bg_color = container_attrs.get("background_color")
+        bg_image = container_attrs.get("background_image")
 
         # Process rows
         row_blocks = []
@@ -343,18 +345,19 @@ class AvadaConverter(BaseConverter):
 
         section_html = "".join(row_blocks)
 
-        # Sections are emitted WITHOUT a background object: emitting any
-        # background triggers a fatal PHP error in this host's Divi 5 save
-        # handler (verified 7205 with-bg -> 500, without-bg -> 201). Real Divi 5
-        # omits the `background` key when there is none.
-        s = section(section_html)
+        s = section(
+            section_html,
+            bg_color=bg_color,
+            bg_image={"src": bg_image} if bg_image else None,
+        )
 
         return placeholder(s)
 
     def _convert_row_to_blocks(self, row_match: str) -> str:
         """Convert fusion_builder_row to Divi 5 row block."""
-        from divi_migrator.converters.divi5_blocks import row  # noqa: PLC0415
+        from divi_migrator.converters.divi5_blocks import row, row_flex  # noqa: PLC0415
 
+        row_attrs = self.extract_row_attrs(row_match)
         columns = self.COLUMN_PATTERN.findall(row_match)
 
         # Process columns
@@ -369,10 +372,17 @@ class AvadaConverter(BaseConverter):
 
         columns_html = "".join(col_blocks)
 
-        # Row backgrounds omitted: same host save-handler fatal as sections
-        # (verified 7205 with-bg -> 500). Tracked follow-up; emit none for now.
-        # Source values available via row_attrs ("background_color" /
-        # "background_image") for a later host-safe pass.
+        # Row background migrated from source (canonical shape via build_background
+        # inside row_flex). Verified live: colored bg does not trigger the earlier
+        # array_keys() save-handler fatal.
+        bg_color = row_attrs.get("background_color")
+        bg_image = row_attrs.get("background_image")
+        if bg_color or bg_image:
+            return row_flex(
+                columns_html,
+                background_color=bg_color,
+                background_image=({"src": bg_image} if bg_image else None),
+            )
         return row(columns_html, layout="4_4")
 
     def _convert_column_to_blocks(self, column_match: str) -> str:
