@@ -279,6 +279,22 @@ Visual Builder or self-heal if DiviOps ever renders them. If you need
 backgrounds applied immediately, set them manually per section/row in the
 Divi editor after migration.
 
+### Post Creation Bypasses DiviOps (by design)
+
+Posts are **created via the WordPress REST `posts` endpoint**, not DiviOps:
+
+- `create_content` calls `self.wp.post("posts", ...)` to create the draft
+  (correct post-type, raw block markup stored in `post_content`).
+- DiviOps is used **only** to apply the Divi 5 block structure afterward
+  (`page/update-content/{id}`), since the posts endpoint stores raw HTML and
+  does not parse Divi builder data.
+- Pages still use the DiviOps `page/create` endpoint (page-only; the posts
+  endpoint cannot create pages).
+
+This split is deliberate: DiviOps `page/create` is page-only and unreliable
+for post-types, so post creation goes through WP REST directly while DiviOps
+handles the block application. (See `core/client.py::create_content`.)
+
 ---
 
 ## 📄 License
