@@ -197,3 +197,37 @@ class TestAvadaConverter:
         assert "wp:divi/image" in result
         assert EXPECTED_IMAGE_SRC in result
 
+    def test_checklist_conversion(self, converter):
+        """fusion_checklist -> native <ul><li> (no raw shortcodes leaked).
+
+        DiviOps cannot populate divi/icon-list from raw markup, so the
+        checklist is rendered as a standard list inside a divi/text block.
+        Each [fusion_li_item] becomes one <li>; its <p>-wrapped text is
+        unwrapped and HTML entities decoded.
+        """
+        content = (
+            "[fusion_builder_container][fusion_builder_row][fusion_builder_column]"
+            "[fusion_text]<p>Intro</p>[/fusion_text]"
+            "[fusion_checklist type=&#8221;icons&#8221; icon=&#8221;fa-heart fas&#8221;]"
+            "[fusion_li_item icon=&#8221;&#8221;]"
+            "</p><p>Holistic Fertility &amp; IVF Advocacy</p><p>"
+            "[/fusion_li_item]"
+            "[fusion_li_item icon=&#8221;&#8221;]"
+            "</p><p>Relationship and Intimacy Counselling</p><p>"
+            "[/fusion_li_item]"
+            "[/fusion_checklist]"
+            "[/fusion_builder_column][/fusion_builder_row][/fusion_builder_container]"
+        )
+        result = converter.convert(content, 124)
+
+        # No raw Avada shortcodes must survive
+        assert "fusion_li_item" not in result
+        assert "fusion_checklist" not in result
+        # Proper list markup with decoded entity
+        assert "<ul>" in result
+        assert "<li>Holistic Fertility & IVF Advocacy</li>" in result
+        assert "<li>Relationship and Intimacy Counselling</li>" in result
+        # Renders inside a divi/text block
+        assert "wp:divi/text" in result
+
+

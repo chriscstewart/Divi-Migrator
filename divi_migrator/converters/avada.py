@@ -62,7 +62,8 @@ class AvadaConverter(BaseConverter):
     FAQ_ITEM_PATTERN = re.compile(r"\[fusion_faq_item[^\]]*](.*?)[/fusion_faq_item]", re.DOTALL)
     COUNTDOWN_PATTERN = re.compile(r"\[fusion_countdown[^\]]*]", re.DOTALL)
     CHECKLIST_PATTERN = re.compile(r"\[fusion_checklist[^\]]*]", re.DOTALL)
-    CHECKLIST_ITEM_PATTERN = re.compile(r"\[fusion_checklist_item[^\]]*]", re.DOTALL)
+    CHECKLIST_FULL_PATTERN = re.compile(r"\[fusion_checklist\b.*?\[/fusion_checklist\]", re.DOTALL)
+    CHECKLIST_ITEM_PATTERN = re.compile(r"\[fusion_li_item\b.*?\[/fusion_li_item\]", re.DOTALL)
     BLOG_PATTERN = re.compile(r"\[fusion_blog[^\]]*]", re.DOTALL)
     CONTENT_BOX_ITEM_PATTERN = re.compile(r"\[fusion_content_box[^\]]*]", re.DOTALL)
     LINK_PATTERN = re.compile(r"\[fusion_link[^\]]*]", re.DOTALL)
@@ -418,7 +419,7 @@ class AvadaConverter(BaseConverter):
         inner_content = self.MAP_PATTERN.sub(self._convert_map_to_block, inner_content)
         inner_content = self.CONTENT_BOX_PATTERN.sub(self._convert_content_box_to_block, inner_content)  # noqa: E501
         inner_content = self.COUNTDOWN_PATTERN.sub(self._convert_countdown_to_block, inner_content)
-        inner_content = self.CHECKLIST_PATTERN.sub(self._convert_checklist_to_block, inner_content)
+        inner_content = self.CHECKLIST_FULL_PATTERN.sub(self._convert_checklist_to_block, inner_content)  # noqa: E501
         inner_content = self.BLOG_PATTERN.sub(self._convert_blog_to_block, inner_content)
 
         # Clean remaining fusion shortcodes
@@ -446,7 +447,10 @@ class AvadaConverter(BaseConverter):
             r"\[fusion_tab[^\]]*\].*?\[/fusion_tab\]",
             r"\[fusion_countdown[^\]]*\]",
             r"\[fusion_checklist[^\]]*\]",
-            r"\[fusion_checklist_item[^\]]*\]",
+            r"\[fusion_checklist[^\]]*\]",
+            r"\[/fusion_checklist\]",
+            r"\[fusion_li_item[^\]]*\]",
+            r"\[/fusion_li_item\]",
             r"\[fusion_blog[^\]]*\]",
             r"\[fusion_imageframe[^\]]*\]",
             r"\[fusion_image[^\]]*\]",
@@ -754,10 +758,30 @@ class AvadaConverter(BaseConverter):
         separator = attrs.get("separator", "on")
         return countdown_timer(number=date, label=label, separator=separator)
 
-    def _convert_checklist_to_block(self, match: re.Match[str]) -> str:  # noqa: ARG002
-        from divi_migrator.converters.divi5_blocks import icon_list  # noqa: PLC0415
+    def _convert_checklist_to_block(self, match: re.Match[str]) -> str:
+        """Convert a fusion_checklist into a native Divi 5 text-block list.
 
-        return icon_list(items=[])
+        DiviOps's headless API does not populate the divi/icon-list module
+        from raw markup (it drops module content it cannot parse), so we
+        render the checklist as a standard <ul><li> list inside a divi/text
+        block, which DiviOps reliably renders. Each [fusion_li_item] becomes
+        one <li>; its inner text (wrapped in <p> by Avada) is unwrapped and
+        HTML entities decoded.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        full = match.group(0)
+        items: list[str] = []
+        for li in self.CHECKLIST_ITEM_PATTERN.finditer(full):
+            body = re.sub(r"\[/?fusion_li_item\b[^\]]*\]", "", li.group(0), flags=re.DOTALL)
+            body = re.sub(r"<[^>]+>", "", body)  # strip <p> and any tags
+            body = html.unescape(body).strip()
+            if body:
+                items.append(body)
+        if not items:
+            return ""
+        lis = "".join(f"<li>{item}</li>" for item in items)
+        return text(f"<ul>{lis}</ul>")
 
     def _convert_blog_to_block(self, match: re.Match[str]) -> str:  # noqa: ARG002
         from divi_migrator.converters.divi5_blocks import blog  # noqa: PLC0415
