@@ -209,31 +209,39 @@ def audit_init(
 
     console.print("[bold]Recording all original content (author 1 & 2 only)...[/bold]")
 
-    # Fetch all pages with pagination
-    all_pages = []
-    page_num = 1
-    while True:
-        pages = wp.get_items("page", status="any", per_page=100, page=page_num, context="edit")
-        if not pages:
-            break
-        all_pages.extend(pages)
-        if len(pages) < 100:  # noqa: PLR2004
-            break
-        page_num += 1
+    # Cheap shared hosts cap `context=edit` listing at ~100 rows total, so a
+    # blanket `status=any` query silently drops items past the cap. Fetch PER
+    # AUTHOR (per_page=50 keeps each author's query under the cap) and merge.
+    audit_per_page = 50
+    all_pages: list[dict[str, Any]] = []
+    all_posts: list[dict[str, Any]] = []
+    for author in (1, 2):
+        page_num = 1
+        while True:
+            pages = wp.get_items(
+                "page", status="any", per_page=audit_per_page, page=page_num,
+                context="edit", author=author,
+            )
+            if not pages:
+                break
+            all_pages.extend(pages)
+            if len(pages) < audit_per_page:
+                break
+            page_num += 1
+        page_num = 1
+        while True:
+            posts = wp.get_items(
+                "post", status="any", per_page=audit_per_page, page=page_num,
+                context="edit", author=author,
+            )
+            if not posts:
+                break
+            all_posts.extend(posts)
+            if len(posts) < audit_per_page:
+                break
+            page_num += 1
 
-    # Fetch all posts with pagination
-    all_posts = []
-    page_num = 1
-    while True:
-        posts = wp.get_items("post", status="any", per_page=100, page=page_num, context="edit")
-        if not posts:
-            break
-        all_posts.extend(posts)
-        if len(posts) < 100:  # noqa: PLR2004
-            break
-        page_num += 1
-
-    # Filter to only author 1 and 2
+    # Filter to only author 1 and 2 (author query is best-effort; enforce client-side too)
     original_pages = [p for p in all_pages if p.get("author") in (1, 2)]
     original_posts = [p for p in all_posts if p.get("author") in (1, 2)]
 

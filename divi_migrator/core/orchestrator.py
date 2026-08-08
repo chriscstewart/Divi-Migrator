@@ -19,6 +19,11 @@ from hashlib import sha256
 
 logger = logging.getLogger(__name__)
 
+# Shared hosts cap `context=edit` listing at ~100 rows, so we fetch originals
+# per author with a small page size to stay safely under that limit.
+AUDIT_FETCH_PER_PAGE = 50
+ORIGINAL_AUTHORS = (1, 2)
+
 MIGRATION_CATEGORY_SLUG = "divi-migrator"
 MIGRATION_CATEGORY_NAME = "Divi Migrator"
 
@@ -328,15 +333,18 @@ class MigrationOrchestrator:
         """Internal migration runner with audit initialization."""
         logger.info("Starting %s migration (dry_run=%s)", post_type, dry_run)
 
-        # Initialize audit if first run
+        # Initialize audit if first run.
+        # NOTE: cheap shared hosts cap `context=edit` listing at ~100 rows total,
+        # so a blanket `status=any` query silently drops items past the cap. We
+        # fetch PER AUTHOR (the migration only targets recorded originals, which
+        # are author 1/2) so each query stays under the cap and nothing is missed.
         audit = self.audit.load()
         if audit.total_pages == 0 and audit.total_posts == 0:
             logger.info("Initializing audit - recording all original content...")
-            pages = self.wp.get_items("page", status="any", per_page=200)
-            posts = self.wp.get_items("post", status="any", per_page=200)
+            pages, posts = self._fetch_originals()
             self.audit.record_originals(pages, posts)
             logger.info("Audit initialized: %d pages, %d posts recorded as originals",
-                       audit.total_pages, audit.total_posts)
+                       len(pages), len(posts))
 
         # Fetch design system ONCE
         logger.info("Fetching design system...")
@@ -392,6 +400,45 @@ class MigrationOrchestrator:
             "status": "completed" if failed == 0 else "completed_with_warnings",
             "results": results,
         }
+
+    def _fetch_originals(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Fetch all original (author 1/2) pages + posts, per-author, paginated.
+
+        Cheap shared hosts cap `context=edit` listing at ~100 rows, so a single
+        blanket `status=any` query silently drops items past the cap. Querying
+        per author with a small page size keeps each call under that limit.
+        """
+        pages: list[dict[str, Any]] = []
+        posts: list[dict[str, Any]] = []
+        for author in ORIGINAL_AUTHORS:
+            page_num = 1
+            while True:
+                chunk = self.wp.get_items(
+                    "page", status="any", per_page=AUDIT_FETCH_PER_PAGE,
+                    page=page_num, context="edit", author=author,
+                )
+                if not chunk:
+                    break
+                pages.extend(chunk)
+                if len(chunk) < AUDIT_FETCH_PER_PAGE:
+                    break
+                page_num += 1
+            page_num = 1
+            while True:
+                chunk = self.wp.get_items(
+                    "post", status="any", per_page=AUDIT_FETCH_PER_PAGE,
+                    page=page_num, context="edit", author=author,
+                )
+                if not chunk:
+                    break
+                posts.extend(chunk)
+                if len(chunk) < AUDIT_FETCH_PER_PAGE:
+                    break
+                page_num += 1
+        # Enforce author filter client-side too (author param is best-effort).
+        pages = [p for p in pages if p.get("author") in ORIGINAL_AUTHORS]
+        posts = [p for p in posts if p.get("author") in ORIGINAL_AUTHORS]
+        return pages, posts
 
     def migrate_post_type(
         self, post_type: str, limit: int | None = None, dry_run: bool = False

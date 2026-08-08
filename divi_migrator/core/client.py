@@ -256,7 +256,7 @@ class WPClient:
 
     # Convenience methods
     def get_items(  # noqa: PLR0913
-        self, post_type: str, page: int = 1, per_page: int = 50, status: str = "any", context: str = "view", search: str | None = None  # noqa: E501
+        self, post_type: str, page: int = 1, per_page: int = 50, status: str = "any", context: str = "view", search: str | None = None, author: int | None = None  # noqa: E501
     ) -> list[dict[str, Any]]:
         """Get items of a post type."""
         if post_type == "page":
@@ -275,6 +275,8 @@ class WPClient:
         }
         if search:
             params["search"] = search
+        if author is not None:
+            params["author"] = author
         resp = self.get(endpoint, params=params)
         return resp if isinstance(resp, list) else []
 
