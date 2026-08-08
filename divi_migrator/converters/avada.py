@@ -307,8 +307,17 @@ class AvadaConverter(BaseConverter):
                 attrs[key] = val
         return attrs
 
-    def convert(self, content: str, _source_id: int, _design_system: Any = None) -> str:
+    def convert(
+        self,
+        content: str,
+        _source_id: int,
+        _design_system: Any = None,
+        wp_client: Any = None,
+    ) -> str:
         """Convert Fusion Builder content to Divi 5 block markup."""
+        # WP client is needed to resolve Avada image_id -> media URL.
+        self.wp_client = wp_client
+        self._media_cache: dict[str, str] = {}
 
         # Import new block generators
 
@@ -528,22 +537,55 @@ class AvadaConverter(BaseConverter):
 
         The divi/image module does not render from raw post_content markup on
         this host, so a native <img> (optionally wrapped in a link) is emitted
-        inside a divi/text block, which renders reliably.
+        inside a divi/text block, which renders reliably. Avada's image_id is
+        resolved to the real media URL via the WP API.
         """
         from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
 
         full = match.group(0)
         attrs = self.extract_image_attrs(full)
 
-        src = attrs.get("src", "")
+        raw_src = attrs.get("src", "")
         alt = attrs.get("alt", "")
         link = attrs.get("link", "")
+        src = self._resolve_image_src(raw_src)
         if not src:
             return ""
 
         img_tag = f'<img src="{src}" alt="{alt}" style="max-width:100%;height:auto;">'
         inner = f'<a href="{link}">{img_tag}</a>' if link else img_tag
         return text(f"<p>{inner}</p>")
+
+    def _resolve_image_src(self, src: str) -> str:
+        """Resolve an Avada image reference to a real media URL.
+
+        Avada uses ``image_id="5481|full"`` (attachment ID + size suffix) or a
+        direct URL. The ``image_id`` form is NOT a valid ``<img src>``, so it
+        must be resolved to the uploaded file URL via the WP media API. Results
+        are cached per converter run to avoid repeated API hits on shared hosts.
+        """
+        if not src:
+            return ""
+        # Already a URL -> use as-is.
+        if src.startswith(("http://", "https://", "//")):
+            return src
+        # image_id form: "5481|full" -> resolve media attachment 5481.
+        media_id = src.split("|", 1)[0].strip()
+        if not media_id.isdigit():
+            return src  # can't resolve; leave as-is rather than drop
+        if media_id in self._media_cache:
+            return self._media_cache[media_id]
+        resolved = ""
+        client = getattr(self, "wp_client", None)
+        if client is not None:
+            try:
+                media = client.get(f"media/{media_id}", params={"context": "edit"})
+                if isinstance(media, dict):
+                    resolved = media.get("source_url") or media.get("guid", {}).get("rendered", "")
+            except Exception:  # noqa: BLE001
+                resolved = ""
+        self._media_cache[media_id] = resolved
+        return resolved
 
     def _convert_separator_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_separator to Divi 5 divider block."""

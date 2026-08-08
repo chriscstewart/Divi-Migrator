@@ -30,7 +30,9 @@ class BaseConverter(ABC):
         """Check if this converter can handle the content."""
 
     @abstractmethod
-    def convert(self, content: str, source_id: int, design_system: Any = None) -> str:
+    def convert(
+        self, content: str, source_id: int, design_system: Any = None, wp_client: Any = None
+    ) -> str:
         """Convert source content to Divi 5 block markup."""
 
     @abstractmethod

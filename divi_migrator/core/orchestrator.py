@@ -132,7 +132,7 @@ class MigrationOrchestrator:
             self.audit.fail_migration(post_type, item_id, f"No converter for format: {fmt}")
             raise ValueError(f"No converter for format: {fmt}")  # noqa: TRY003
 
-        divi_content = converter.convert(content, item_id, design_system)
+        divi_content = converter.convert(content, item_id, design_system, wp_client=self.wp)
 
         # Validate with DiviOps
         validation = self.diviops.validate_blocks(divi_content)

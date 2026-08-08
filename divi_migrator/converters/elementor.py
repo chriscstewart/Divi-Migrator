@@ -24,9 +24,11 @@ class ElementorConverter(BaseConverter):
         ]
         return any(marker in content for marker in elementor_markers)
 
-    def convert(self, content: str, _source_id: int, _design_system: Any = None) -> str:
+    def convert(
+        self, content: str, _source_id: int, _design_system: Any = None, wp_client: Any = None  # noqa: ARG002
+    ) -> str:
         """Convert Elementor content to Divi 5 (stub - wraps as plain HTML)."""
-        # TODO: Implement proper Elementor → Divi 5 conversion
+        # TODO: Implement proper Elementor -> Divi 5 conversion
         # For now, wrap as plain HTML
         return self._wrap_as_plain_html(content)
 

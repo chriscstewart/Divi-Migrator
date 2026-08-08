@@ -1,6 +1,8 @@
 """Tests for Avada converter."""
 
 import pytest
+from typing import Any
+
 from divi_migrator.converters.avada import AvadaConverter
 
 # Test constants
@@ -196,12 +198,14 @@ class TestAvadaConverter:
 
         The divi/image module does not render from raw post_content markup on
         this host, so a native <img> (link-wrapped when a link is present)
-        inside divi/text is emitted instead.
+        inside divi/text is emitted instead. A direct URL is used here (no WP
+        client needed for resolution).
         """
+        direct_url = "https://example.com/uploads/test.jpg"
         content = (
             "[fusion_builder_container][fusion_builder_row]"
             "[fusion_builder_column][fusion_imageframe "
-            f'image_id="{EXPECTED_IMAGE_SRC}" alt="{EXPECTED_IMAGE_ALT}"]'
+            f'src="{direct_url}" alt="{EXPECTED_IMAGE_ALT}"]'
             "[/fusion_builder_column][/fusion_builder_row]"
             "[/fusion_builder_container]"
         )
@@ -210,7 +214,25 @@ class TestAvadaConverter:
         assert "wp:divi/text" in result
         assert "wp:divi/image" not in result
         assert "<img" in result
-        assert EXPECTED_IMAGE_SRC in result
+        assert direct_url in result
+
+    def test_image_id_resolution(self, converter):
+        """An Avada image_id (e.g. '5481|full') is resolved to the media URL."""
+        class FakeClient:
+            def get(self, endpoint: str, params: Any = None) -> dict[str, Any]:  # noqa: ARG002
+                if endpoint == "media/5481":
+                    return {"source_url": "https://example.com/wp-content/uploads/x.jpg"}
+                return {}
+
+        converter.wp_client = FakeClient()
+        converter._media_cache = {}  # noqa: SLF001
+        result = converter._resolve_image_src("5481|full")  # noqa: SLF001
+        assert result == "https://example.com/wp-content/uploads/x.jpg"
+
+        # With no client, an unresolvable image_id yields empty (image dropped,
+        # not a broken src).
+        converter.wp_client = None
+        assert converter._resolve_image_src("9999|full") == ""  # noqa: SLF001
 
     def test_checklist_conversion(self, converter):
         """fusion_checklist -> native <ul><li> (no raw shortcodes leaked).
