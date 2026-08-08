@@ -53,3 +53,6 @@ Thumbs.db
 
 # Pre-commit baseline (if you later adopt trufflehog/git-secrets)
 .secrets.baseline.json
+
+# Audit rollback backups (generated at runtime)
+audit_backups/
