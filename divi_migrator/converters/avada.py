@@ -327,8 +327,11 @@ class AvadaConverter(BaseConverter):
         # Section background (canonical Divi 5 shape via build_background,
         # called inside section()). Real Divi 5 omits the `background` key
         # when there is none; when a source Avada container has a color/image
-        # we migrate it. Shape verified live (colored bg section creates
-        # without the earlier array_keys() save-handler fatal).
+        # we migrate it. NOTE: the correct shape POSTs cleanly (HTTP 201, no
+        # fatal), but DiviOps's headless renderer does not apply section/row
+        # backgrounds set via the API (verified 2026-08-08: module_update
+        # stores the attr but the published page renders no background-color).
+        # Markup is emitted correctly / future-proof; see DiviOps limitation.
         container_attrs = self.extract_container_attrs(full)
         bg_color = container_attrs.get("background_color")
         bg_image = container_attrs.get("background_image")
@@ -373,8 +376,10 @@ class AvadaConverter(BaseConverter):
         columns_html = "".join(col_blocks)
 
         # Row background migrated from source (canonical shape via build_background
-        # inside row_flex). Verified live: colored bg does not trigger the earlier
-        # array_keys() save-handler fatal.
+        # inside row_flex). The correct shape POSTs cleanly (HTTP 201, no fatal),
+        # but DiviOps's headless renderer does not apply section/row backgrounds
+        # set via the API (verified 2026-08-08: module_update stores the attr but
+        # the published page renders no background-color). Markup emitted correctly.
         bg_color = row_attrs.get("background_color")
         bg_image = row_attrs.get("background_image")
         if bg_color or bg_image:

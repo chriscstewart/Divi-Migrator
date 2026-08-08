@@ -75,9 +75,12 @@ def _section_module(bg: dict[str, Any] | None = None, spacing: dict[str, Any] | 
     }
     # Real Divi 5 omits the `background` key entirely when there is none. When
     # present, the value is a canonical object whose `color`/`image` keys are
-    # themselves responsive breakpoint objects (see build_background). An
-    # over-nested or partial background makes Divi 5's background renderer
-    # fatal on save/preview (verified: array_keys() crash on malformed bg).
+    # themselves responsive breakpoint objects (see build_background). NOTE:
+    # the correct shape POSTs cleanly (HTTP 201, no fatal), but DiviOps's
+    # headless renderer does not apply section/row backgrounds set via the API
+    # (verified 2026-08-08: module_update stores the attr but the published
+    # page renders no background-color). Markup is emitted correctly so it is
+    # future-proof / editable in Visual Builder; see DiviOps limitation note.
     if bg:
         m["decoration"]["background"] = bg
     if spacing:

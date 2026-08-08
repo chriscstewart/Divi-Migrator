@@ -47,13 +47,12 @@ class PlainHTMLConverter(BaseConverter):
             # Clean HTML
             content = self._clean_html(content)
 
-            # NOTE: Plain HTML source has no per-section background, and emitting a
-            # background object (even a valid-looking one) triggers a fatal PHP error
-            # in this host's Divi 5 save handler (verified: 7205 POST with bg -> 500,
-            # without bg -> 201). Real Divi 5 omits the `background` key when there is
-            # no background, so we emit none here. Section backgrounds (when a real
-            # source color exists) are a tracked follow-up, not part of the crash-free
-            # migration path.
+            # Plain HTML source has no per-section background, so we emit none
+            # here (real Divi 5 omits the `background` key when there is none).
+            # The correct background shape POSTs cleanly (HTTP 201, no fatal),
+            # but DiviOps's headless renderer does not apply section/row
+            # backgrounds set via the API (verified 2026-08-08). Avada sources
+            # WITH a background do emit the canonical shape (see avada.py).
             bg_color = None
 
             # Wrap in Divi 5 structure

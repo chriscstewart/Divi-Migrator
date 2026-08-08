@@ -255,6 +255,32 @@ mypy divi_migrator/
 
 ---
 
+## ⚠️ Known Limitations
+
+### Section / Row / Module Backgrounds (DiviOps rendering)
+
+The migrator emits **correct, schema-valid Divi 5 background markup** (e.g.
+`background.color.desktop.value = "#770000"` or
+`background.image.desktop.value = {src, url}`) when the source has a
+background, and **omits** the `background` key entirely when it does not
+(matches real Divi 5).
+
+However, **DiviOps's headless API does not apply section/row backgrounds at
+render time** (verified 2026-08-08):
+
+- `page/create` / posts `update-content` **drop** `module.decoration` entirely.
+- `module_update` **stores** the attribute (visible via `module_get`,
+  `attr_count` increases) but the published page / `render_preview` emit **no
+  `background-color` CSS**.
+
+This is a platform limitation of DiviOps on this host, not a code defect.
+The correct markup is preserved so backgrounds become editable in the Divi
+Visual Builder or self-heal if DiviOps ever renders them. If you need
+backgrounds applied immediately, set them manually per section/row in the
+Divi editor after migration.
+
+---
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE)
