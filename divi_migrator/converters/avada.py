@@ -25,12 +25,16 @@ class AvadaConverter(BaseConverter):
     )
     TEXT_PATTERN = re.compile(r"\[fusion_text[^\]]*\](.*?)\[/fusion_text\]", re.DOTALL)
     TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\](.*?)\[/fusion_title\]", re.DOTALL)
-    BUTTON_PATTERN = re.compile(r"\[fusion_button[^\]]*\]", re.DOTALL)
-    IMAGE_PATTERN = re.compile(r"\[fusion_imageframe[^\]]*\]", re.DOTALL)
+    BUTTON_PATTERN = re.compile(
+        r"\[fusion_button\b[^\]]*\](.*?)(?:\[/fusion_button\])?", re.DOTALL
+    )
+    IMAGE_PATTERN = re.compile(
+        r"\[fusion_imageframe\b[^\]]*\](?:.*?\[/fusion_imageframe\])?", re.DOTALL
+    )
     SEPARATOR_PATTERN = re.compile(r"\[fusion_separator[^\]]*\]", re.DOTALL)
     ICON_PATTERN = re.compile(r"\[fusion_fontawesome[^\]]*\]", re.DOTALL)
     MAP_PATTERN = re.compile(r"\[fusion_map[^\]]*\]", re.DOTALL)
-    VIDEO_PATTERN = re.compile(r"\[fusion_video[^\]]*\]", re.DOTALL)
+    VIDEO_PATTERN = re.compile(r"\[fusion_video\b[^\]]*\](?:.*?\[/fusion_video\])?", re.DOTALL)
     GALLERY_PATTERN = re.compile(r"\[fusion_gallery[^\]]*\]", re.DOTALL)
     TABS_PATTERN = re.compile(r"\[fusion_tabs[^\]]*\](.*?)\[/fusion_tabs\]", re.DOTALL)
     TAB_PATTERN = re.compile(r"\[fusion_tab[^\]]*\](.*?)\[/fusion_tab\]", re.DOTALL)
@@ -53,7 +57,7 @@ class AvadaConverter(BaseConverter):
     CODE_PATTERN = re.compile(r"\[fusion_code[^\]]*\](.*?)\[/fusion_code\]", re.DOTALL)
     RAW_PATTERN = re.compile(r"\[fusion_raw[^\]]*\](.*?)\[/fusion_raw\]", re.DOTALL)
 
-    YOUTUBE_PATTERN = re.compile(r"\[fusion_youtube[^\]]*]", re.DOTALL)
+    YOUTUBE_PATTERN = re.compile(r"\[fusion_youtube\b[^\]]*\](?:.*?\[/fusion_youtube\])?", re.DOTALL)  # noqa: E501
     VIMEO_PATTERN = re.compile(r"\[fusion_vimeo[^\]]*]", re.DOTALL)
     TESTIMONIALS_PATTERN = re.compile(r"\[fusion_testimonials[^\]]*](.*?)[/fusion_testimonials]", re.DOTALL)  # noqa: E501
     CONTENT_BOX_PATTERN = re.compile(r"\[fusion_content_box[^\]]*]", re.DOTALL)
@@ -460,6 +464,12 @@ class AvadaConverter(BaseConverter):
             r"\[fusion_images[^\]]*\]",
             r"\[fusion_social_links[^\]]*\]",
             r"\[fusion_social_link[^\]]*\]",
+            # Closing-tag backstops (in case any module's open/close pair slips through)
+            r"\[/fusion_button\]",
+            r"\[/fusion_imageframe\]",
+            r"\[/fusion_video\]",
+            r"\[/fusion_youtube\]",
+            r"\[/fusion_vimeo\]",
         ]
         for pattern in patterns:
             inner_content = re.sub(pattern, "", inner_content, flags=re.DOTALL)
@@ -494,28 +504,46 @@ class AvadaConverter(BaseConverter):
         return heading(title_text, level, color=color, alignment=alignment)
 
     def _convert_button_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_button to Divi 5 button block."""
-        from divi_migrator.converters.divi5_blocks import button  # noqa: PLC0415
+        """Convert fusion_button to a native anchor styled as a Divi button.
+
+        DiviOps's headless API does not reliably render the divi/button module
+        from raw markup (and update_page_content is flaky on shared hosting),
+        so we emit a styled <a> inside a divi/text block, which renders
+        reliably on the front-end.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
+        # Inner text (between open/close) is the real label when present.
+        inner = match.group(1).strip() if match.lastindex else ""
         attrs = self.extract_all_attrs(full)
-
-        btn_text = attrs.get("text", "Button")
+        btn_text = inner or attrs.get("text", "Button")
+        btn_text = _clean_html(btn_text).strip() or "Button"
         link = attrs.get("link", "#")
-        color = attrs.get("color", "#e8cb90")
-
-        return button(btn_text, link, color=color)
+        btn_html = f'<a href="{link}" class="et_pb_button et_pb_bg_layout_light">{btn_text}</a>'
+        return text(f"<p>{btn_html}</p>")
 
     def _convert_image_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_imageframe to Divi 5 image block."""
-        from divi_migrator.converters.divi5_blocks import image  # noqa: PLC0415
+        """Convert fusion_imageframe to a native <img> inside a divi/text block.
+
+        The divi/image module does not render from raw post_content markup on
+        this host, so a native <img> (optionally wrapped in a link) is emitted
+        inside a divi/text block, which renders reliably.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_image_attrs(full)
 
         src = attrs.get("src", "")
         alt = attrs.get("alt", "")
         link = attrs.get("link", "")
+        if not src:
+            return ""
 
-        return image(src, alt=alt, link=link if link else None)
+        img_tag = f'<img src="{src}" alt="{alt}" style="max-width:100%;height:auto;">'
+        inner = f'<a href="{link}">{img_tag}</a>' if link else img_tag
+        return text(f"<p>{inner}</p>")
 
     def _convert_separator_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_separator to Divi 5 divider block."""
@@ -529,8 +557,14 @@ class AvadaConverter(BaseConverter):
         return divider(style=style, color=color if color else None)
 
     def _convert_youtube_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_youtube to Divi 5 video block."""
-        from divi_migrator.converters.divi5_blocks import video  # noqa: PLC0415
+        """Convert fusion_youtube to a native YouTube <iframe> in a divi/text block.
+
+        The divi/video module does not render from raw post_content markup on
+        this host, so a native embed <iframe> is emitted inside a divi/text
+        block, which renders reliably on the front-end.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
@@ -542,29 +576,44 @@ class AvadaConverter(BaseConverter):
             vid_match = re.search(r"^([\w-]{11})$", yt_url.strip())
         if vid_match:
             vid = vid_match.group(1)
-            return video(f"https://www.youtube.com/watch?v={vid}", type_="youtube")
+            embed = f"https://www.youtube.com/embed/{vid}"
+            return text(
+                f'<p><iframe width="640" height="360" src="{embed}" '
+                f'frameborder="0" allowfullscreen></iframe></p>'
+            )
         return ""
 
     def _convert_vimeo_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_vimeo to Divi 5 video block."""
-        from divi_migrator.converters.divi5_blocks import video  # noqa: PLC0415
+        """Convert fusion_vimeo to a native Vimeo <iframe> in a divi/text block."""
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
         vimeo_url = attrs.get("id", "")
         if vimeo_url:
-            return video(vimeo_url, type_="vimeo")
+            vm = re.search(r"vimeo\.com/(\d+)", vimeo_url)
+            vid = vm.group(1) if vm else vimeo_url.strip()
+            embed = f"https://player.vimeo.com/video/{vid}"
+            return text(
+                f'<p><iframe width="640" height="360" src="{embed}" '
+                f'frameborder="0" allowfullscreen></iframe></p>'
+            )
         return ""
 
     def _convert_video_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_video to Divi 5 video block."""
-        from divi_migrator.converters.divi5_blocks import video  # noqa: PLC0415
+        """Convert fusion_video (self-hosted) to a native <video> in a divi/text block."""
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
         vid_url = attrs.get("mp4", "") or attrs.get("webm", "") or attrs.get("ogv", "")
         if vid_url:
-            return video(vid_url, type_="video")
+            return text(
+                f'<p><video width="640" height="360" controls>'
+                f'<source src="{vid_url}" type="video/mp4"></video></p>'
+            )
         return ""
 
     def _convert_testimonial_to_block(self, match: re.Match[str]) -> str:

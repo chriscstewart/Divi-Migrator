@@ -125,7 +125,11 @@ class TestAvadaConverter:
         assert "<!-- /wp:divi/placeholder -->" in result
 
     def test_youtube_conversion(self, converter):
-        """Test YouTube shortcode conversion to divi/video."""
+        """Test YouTube shortcode conversion to a native embed <iframe> in a divi/text block.
+
+        The divi/video module does not render from raw post_content markup on
+        this host, so a native <iframe> inside divi/text is emitted instead.
+        """
         content = (
             "[fusion_builder_container][fusion_builder_row]"
             "[fusion_builder_column][fusion_youtube "
@@ -135,12 +139,14 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        # Should convert to divi/video with normalized URL
-        assert "wp:divi/video" in result
-        assert DEFAULT_YOUTUBE_URL in result
+        # Native iframe inside a divi/text block, normalized embed URL
+        assert "wp:divi/text" in result
+        assert "wp:divi/video" not in result
+        assert "<iframe" in result
+        assert f"youtube.com/embed/{DEFAULT_YOUTUBE_ID}" in result
 
     def test_vimeo_conversion(self, converter):
-        """Test Vimeo shortcode conversion to divi/video."""
+        """Test Vimeo shortcode conversion to a native embed <iframe> in a divi/text block."""
         content = (
             "[fusion_builder_container][fusion_builder_row]"
             f'[fusion_builder_column][fusion_vimeo id="{DEFAULT_VIMEO_ID}"]'
@@ -149,8 +155,10 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        assert "wp:divi/video" in result
-        assert DEFAULT_VIMEO_ID in result
+        assert "wp:divi/text" in result
+        assert "wp:divi/video" not in result
+        assert "<iframe" in result
+        assert f"player.vimeo.com/video/{DEFAULT_VIMEO_ID}" in result
 
     def test_testimonial_conversion(self, converter):
         """Test testimonial conversion to blurb."""
@@ -184,7 +192,12 @@ class TestAvadaConverter:
         assert "Jane Smith" in result
 
     def test_image_conversion(self, converter):
-        """Test imageframe conversion."""
+        """Test imageframe conversion to a native <img> in a divi/text block.
+
+        The divi/image module does not render from raw post_content markup on
+        this host, so a native <img> (link-wrapped when a link is present)
+        inside divi/text is emitted instead.
+        """
         content = (
             "[fusion_builder_container][fusion_builder_row]"
             "[fusion_builder_column][fusion_imageframe "
@@ -194,7 +207,9 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        assert "wp:divi/image" in result
+        assert "wp:divi/text" in result
+        assert "wp:divi/image" not in result
+        assert "<img" in result
         assert EXPECTED_IMAGE_SRC in result
 
     def test_checklist_conversion(self, converter):
