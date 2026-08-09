@@ -24,9 +24,9 @@ class AvadaConverter(BaseConverter):
         r"\[fusion_builder_column[^\]]*\](.*?)\[/fusion_builder_column\]", re.DOTALL
     )
     TEXT_PATTERN = re.compile(r"\[fusion_text[^\]]*\](.*?)\[/fusion_text\]", re.DOTALL)
-    TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\](?:.*?\[/fusion_title\])?", re.DOTALL)
+    TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\](?:.*?\[/fusion_title\])?", re.DOTALL)  # noqa: E501
     BUTTON_PATTERN = re.compile(
-        r"\[fusion_button\b[^\]]*\](.*?)(?:\[/fusion_button\])?", re.DOTALL
+        r"\[fusion_button\b[^\]]*\](.*?)\[/fusion_button\]|\[fusion_button\b[^\]]*\]", re.DOTALL
     )
     IMAGE_PATTERN = re.compile(
         r"\[fusion_imageframe\b[^\]]*\](?:.*?\[/fusion_imageframe\])?", re.DOTALL
@@ -52,7 +52,7 @@ class AvadaConverter(BaseConverter):
     )
     PERSON_PATTERN = re.compile(r"\[fusion_person[^\]]*\](?:.*?\[/fusion_person\])?", re.DOTALL)
     TESTIMONIAL_PATTERN = re.compile(
-        r"\[fusion_testimonial[^\]]*\](.*?)(?:\[/fusion_testimonial\])?", re.DOTALL
+        r"\[fusion_testimonial[^\]]*\](.*?)\[/fusion_testimonial\]", re.DOTALL
     )
     PRICING_TABLE_PATTERN = re.compile(
         r"\[fusion_pricing_table[^\]]*\](.*?)\[/fusion_pricing_table\]", re.DOTALL
@@ -62,6 +62,7 @@ class AvadaConverter(BaseConverter):
     )
     CODE_PATTERN = re.compile(r"\[fusion_code[^\]]*\](.*?)\[/fusion_code\]", re.DOTALL)
     RAW_PATTERN = re.compile(r"\[fusion_raw[^\]]*\](.*?)\[/fusion_raw\]", re.DOTALL)
+    WOO_SHORTCODES_PATTERN = re.compile(r"\[fusion_woo_shortcodes[^\]]*\](.*?)\[/fusion_woo_shortcodes\]", re.DOTALL)  # noqa: E501
 
     YOUTUBE_PATTERN = re.compile(r"\[fusion_youtube\b[^\]]*\](?:.*?\[/fusion_youtube\])?", re.DOTALL)  # noqa: E501
     VIMEO_PATTERN = re.compile(r"\[fusion_vimeo[^\]]*]", re.DOTALL)
@@ -341,7 +342,7 @@ class AvadaConverter(BaseConverter):
     def _convert_container_to_blocks(self, match: re.Match[str]) -> str:
         """Convert fusion_builder_container to Divi 5 blocks."""
         from divi_migrator.converters.divi5_blocks import (  # noqa: PLC0415
-            section, placeholder
+            section,
         )
 
         full = match.group(0)
@@ -373,13 +374,11 @@ class AvadaConverter(BaseConverter):
 
         section_html = "".join(row_blocks)
 
-        s = section(
+        return section(
             section_html,
             bg_color=bg_color,
             bg_image={"src": bg_image} if bg_image else None,
         )
-
-        return placeholder(s)
 
     def _convert_row_to_blocks(self, row_match: str) -> str:
         """Convert fusion_builder_row to Divi 5 row block."""
@@ -450,6 +449,7 @@ class AvadaConverter(BaseConverter):
         inner_content = self.TOGGLES_PATTERN.sub(self._convert_accordion_to_block, inner_content)
         inner_content = self.CODE_PATTERN.sub(self._convert_code_to_block, inner_content)
         inner_content = self.RAW_PATTERN.sub(self._convert_raw_to_block, inner_content)
+        inner_content = self.WOO_SHORTCODES_PATTERN.sub(self._convert_woo_to_block, inner_content)
         inner_content = self.ICON_PATTERN.sub(self._convert_fontawesome_to_block, inner_content)
         # Newly-covered shortcodes that previously hit the silent strip list
         inner_content = self.GALLERY_PATTERN.sub(self._convert_gallery_to_block, inner_content)
@@ -500,11 +500,9 @@ class AvadaConverter(BaseConverter):
             r"\[fusion_gallery[^\]]*\]",
             r"\[fusion_gallery_image[^\]]*\]",
             r"\[fusion_images[^\]]*\]",
-            r"\[fusion_events[^\]]*\]",            r"\[/fusion_images\]",
-            r"\[fusion_woo_shortcodes[^\]]*\]",
-            r"\[/fusion_woo_shortcodes\]",
-            r"\[/fusion_title\]",
-            r"\[/fusion_faq\]",
+            r"\[/fusion_images\]",
+            r"\[fusion_title\]",
+            r"\[fusion_faq\]",
             r"\[/fusion_content_box\]",
             r"\[/fusion_testimonial\]",
 
@@ -566,14 +564,13 @@ class AvadaConverter(BaseConverter):
         return heading(title_text, level, color=color, alignment=alignment)
 
     def _convert_button_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_button to a native anchor styled as a Divi button.
+        """Convert fusion_button to a real divi/button module.
 
-        DiviOps's headless API does not reliably render the divi/button module
-        from raw markup (and update_page_content is flaky on shared hosting),
-        so we emit a styled <a> inside a divi/text block, which renders
-        reliably on the front-end.
+        The button becomes a proper ``divi/button`` block with
+        ``button.innerContent.desktop.value = {text, linkUrl}`` so it renders
+        and is editable in the Visual Builder (not a styled <a> inside text).
         """
-        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+        from divi_migrator.converters.divi5_blocks import button  # noqa: PLC0415
 
         full = match.group(0)
         # Inner text (between open/close) is the real label when present.
@@ -582,18 +579,17 @@ class AvadaConverter(BaseConverter):
         btn_text = inner or attrs.get("text", "Button")
         btn_text = _clean_html(btn_text).strip() or "Button"
         link = attrs.get("link", "#")
-        btn_html = f'<a href="{link}" class="et_pb_button et_pb_bg_layout_light">{btn_text}</a>'
-        return text(f"<p>{btn_html}</p>")
+        return button(btn_text, link)
 
     def _convert_image_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_imageframe to a native <img> inside a divi/text block.
+        """Convert fusion_imageframe to a real divi/image module.
 
-        The divi/image module does not render from raw post_content markup on
-        this host, so a native <img> (optionally wrapped in a link) is emitted
-        inside a divi/text block, which renders reliably. Avada's image_id is
-        resolved to the real media URL via the WP API.
+        Emits a proper ``divi/image`` block with
+        ``image.innerContent.desktop.value = {src, id, alt, titleText}`` so it
+        renders and is editable in the Visual Builder. Avada's image_id is
+        resolved to the real media URL via the WP API (requires wp_client).
         """
-        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+        from divi_migrator.converters.divi5_blocks import image  # noqa: PLC0415
 
         full = match.group(0)
         attrs = self.extract_image_attrs(full)
@@ -605,9 +601,7 @@ class AvadaConverter(BaseConverter):
         if not src:
             return ""
 
-        img_tag = f'<img src="{src}" alt="{alt}" style="max-width:100%;height:auto;">'
-        inner = f'<a href="{link}">{img_tag}</a>' if link else img_tag
-        return text(f"<p>{inner}</p>")
+        return image(src, alt, link)
 
     def _resolve_image_src(self, src: str) -> str:
         """Resolve an Avada image reference to a real media URL.
@@ -652,13 +646,13 @@ class AvadaConverter(BaseConverter):
         return divider(style=style, color=color if color else None)
 
     def _convert_youtube_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_youtube to a native YouTube <iframe> in a divi/text block.
+        """Convert fusion_youtube to a real divi/video module.
 
-        The divi/video module does not render from raw post_content markup on
-        this host, so a native embed <iframe> is emitted inside a divi/text
-        block, which renders reliably on the front-end.
+        Emits a proper divi/video block with video.innerContent.desktop.value =
+        {src, type:"youtube"} so the URL lives in the Video module (not a raw
+        <iframe> inside divi/text). The 11-char ID is resolved to the embed URL.
         """
-        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+        from divi_migrator.converters.divi5_blocks import video  # noqa: PLC0415
 
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
@@ -672,15 +666,17 @@ class AvadaConverter(BaseConverter):
         if vid_match:
             vid = vid_match.group(1)
             embed = f"https://www.youtube.com/embed/{vid}"
-            return text(
-                f'<p><iframe width="640" height="360" src="{embed}" '
-                f'frameborder="0" allowfullscreen></iframe></p>'
-            )
+            return video(embed, "youtube")
         return ""
 
     def _convert_vimeo_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_vimeo to a native Vimeo <iframe> in a divi/text block."""
-        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+        """Convert fusion_vimeo to a real divi/video module.
+
+        Emits a proper divi/video block with video.innerContent.desktop.value =
+        {src, type:"vimeo"} so the URL lives in the Video module (not a raw
+        <iframe> inside divi/text).
+        """
+        from divi_migrator.converters.divi5_blocks import video  # noqa: PLC0415
 
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
@@ -690,15 +686,17 @@ class AvadaConverter(BaseConverter):
             vm = re.search(r"vimeo\.com/(\d+)", vimeo_url)
             vid = vm.group(1) if vm else vimeo_url.strip()
             embed = f"https://player.vimeo.com/video/{vid}"
-            return text(
-                f'<p><iframe width="640" height="360" src="{embed}" '
-                f'frameborder="0" allowfullscreen></iframe></p>'
-            )
+            return video(embed, "vimeo")
         return ""
 
     def _convert_video_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_video (self-hosted) to a native <video> in a divi/text block."""
-        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+        """Convert fusion_video (self-hosted) to a real divi/video module.
+
+        Emits a proper divi/video block with video.innerContent.desktop.value =
+        {src, type:"video"} so the file lives in the Video module (not a raw
+        <video> inside divi/text).
+        """
+        from divi_migrator.converters.divi5_blocks import video  # noqa: PLC0415
 
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
@@ -708,10 +706,7 @@ class AvadaConverter(BaseConverter):
             or attrs.get("webm", "") or attrs.get("ogv", "")
         )
         if vid_url:
-            return text(
-                f'<p><video width="640" height="360" controls>'
-                f'<source src="{vid_url}" type="video/mp4"></video></p>'
-            )
+            return video(vid_url, "video")
         return ""
 
     def _convert_testimonial_to_block(self, match: re.Match[str]) -> str:
@@ -1050,6 +1045,21 @@ class AvadaConverter(BaseConverter):
         """Convert fusion_raw to pass-through HTML in a divi/text block.
 
         Raw HTML should pass through verbatim; a divi/text block renders it.
+        """
+        from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
+
+        inner = match.group(1).strip() if match.lastindex else ""
+        if not inner:
+            return ""
+        return text(inner)
+
+    def _convert_woo_to_block(self, match: re.Match[str]) -> str:
+        """Convert fusion_woo_shortcodes product grid to pass-through HTML.
+
+        The WooCommerce product grid is rendered server-side by WordPress; the
+        shortcode wraps already-rendered product <li> HTML. We wrap that HTML in
+        a divi/text block so it renders on the front-end and does not break the
+        Visual Builder (raw HTML between block comments would).
         """
         from divi_migrator.converters.divi5_blocks import text  # noqa: PLC0415
 

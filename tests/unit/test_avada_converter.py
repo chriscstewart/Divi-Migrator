@@ -78,14 +78,14 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        # Check for Divi 5 block markup format
-        assert "<!-- wp:divi/placeholder" in result
+        # Check for Divi 5 block markup format (native sections, no placeholder
+        # wrapper — placeholder is only for foreign/non-Divi blocks).
         assert "<!-- wp:divi/section" in result
         assert "<!-- wp:divi/row" in result
         assert "<!-- wp:divi/column" in result
         assert "<!-- wp:divi/text" in result
         assert "Hello World" in result
-        assert "<!-- /wp:divi/placeholder -->" in result
+        assert "<!-- /wp:divi/section -->" in result
 
     def test_convert_button(self, converter):
         """Test button conversion."""
@@ -117,20 +117,21 @@ class TestAvadaConverter:
         html = "<p>Hello world</p>"
         result = converter._wrap_as_plain_html(html)  # noqa: SLF001
 
-        # Check for Divi 5 block markup format
-        assert "<!-- wp:divi/placeholder" in result
+        # Check for Divi 5 block markup format (native sections, no placeholder
+        # wrapper — placeholder is only for foreign/non-Divi blocks).
         assert "<!-- wp:divi/section" in result
         assert "<!-- wp:divi/row" in result
         assert "<!-- wp:divi/column" in result
         assert "<!-- wp:divi/text" in result
         assert "Hello world" in result
-        assert "<!-- /wp:divi/placeholder -->" in result
+        assert "<!-- /wp:divi/section -->" in result
 
     def test_youtube_conversion(self, converter):
-        """Test YouTube shortcode conversion to a native embed <iframe> in a divi/text block.
+        """Test YouTube shortcode conversion to a real divi/video module.
 
-        The divi/video module does not render from raw post_content markup on
-        this host, so a native <iframe> inside divi/text is emitted instead.
+        fusion_youtube becomes a proper divi/video block with
+        video.innerContent.desktop.value = "<url>" (plain URL string, NOT an
+        object) so the URL is saved into the Video module.
         """
         content = (
             "[fusion_builder_container][fusion_builder_row]"
@@ -141,14 +142,18 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        # Native iframe inside a divi/text block, normalized embed URL
-        assert "wp:divi/text" in result
-        assert "wp:divi/video" not in result
-        assert "<iframe" in result
+        # Real divi/video module, normalized embed URL, no raw iframe.
+        assert "wp:divi/video" in result
+        assert "wp:divi/text" not in result
+        assert "<iframe" not in result
         assert f"youtube.com/embed/{DEFAULT_YOUTUBE_ID}" in result
 
     def test_vimeo_conversion(self, converter):
-        """Test Vimeo shortcode conversion to a native embed <iframe> in a divi/text block."""
+        """Test Vimeo shortcode conversion to a real divi/video module.
+
+        fusion_vimeo becomes a proper divi/video block with
+        video.innerContent.desktop.value = "<url>" (plain URL string).
+        """
         content = (
             "[fusion_builder_container][fusion_builder_row]"
             f'[fusion_builder_column][fusion_vimeo id="{DEFAULT_VIMEO_ID}"]'
@@ -157,9 +162,9 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        assert "wp:divi/text" in result
-        assert "wp:divi/video" not in result
-        assert "<iframe" in result
+        assert "wp:divi/video" in result
+        assert "wp:divi/text" not in result
+        assert "<iframe" not in result
         assert f"player.vimeo.com/video/{DEFAULT_VIMEO_ID}" in result
 
     def test_testimonial_conversion(self, converter):
@@ -202,12 +207,12 @@ class TestAvadaConverter:
         assert "CEO" in result
 
     def test_image_conversion(self, converter):
-        """Test imageframe conversion to a native <img> in a divi/text block.
+        """Test imageframe conversion to a real divi/image module.
 
-        The divi/image module does not render from raw post_content markup on
-        this host, so a native <img> (link-wrapped when a link is present)
-        inside divi/text is emitted instead. A direct URL is used here (no WP
-        client needed for resolution).
+        fusion_imageframe becomes a proper divi/image block with
+        image.innerContent.desktop.value = {src, id, alt, titleText} so it
+        renders and is editable in the Visual Builder (not a native <img>
+        inside divi/text). A direct URL is used here (no WP client needed).
         """
         direct_url = "https://example.com/uploads/test.jpg"
         content = (
@@ -219,10 +224,11 @@ class TestAvadaConverter:
         )
         result = converter.convert(content, 123)
 
-        assert "wp:divi/text" in result
-        assert "wp:divi/image" not in result
-        assert "<img" in result
+        assert "wp:divi/image" in result
+        assert "wp:divi/text" not in result
+        assert '"src"' in result
         assert direct_url in result
+        assert EXPECTED_IMAGE_ALT in result
 
     def test_image_id_resolution(self, converter):
         """An Avada image_id (e.g. '5481|full') is resolved to the media URL."""

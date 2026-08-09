@@ -75,13 +75,17 @@ class MigrationOrchestrator:
             }
         else:
             meta = {}
-        # Categories/tags live on the live original (preserved, renamed to -old).
+        # Categories/tags/featured image live on the live original
+        # (preserved, renamed to -old). Capture them so the migrated item
+        # keeps the original's taxonomy, authorship AND featured image.
         wp_original = self.wp.get_item(post_type, item_id)
         if isinstance(wp_original, dict):
             if "categories" in wp_original:
                 meta["categories"] = wp_original["categories"]
             if "tags" in wp_original:
                 meta["tags"] = wp_original["tags"]
+            if "featured_media" in wp_original:
+                meta["featured_media"] = wp_original["featured_media"]
             if not original:
                 meta.update({
                     "date": wp_original.get("date"),
@@ -91,6 +95,7 @@ class MigrationOrchestrator:
                     "slug": wp_original.get("slug"),
                     "author": wp_original.get("author"),
                     "status": wp_original.get("status"),
+                    "featured_media": wp_original.get("featured_media"),
                 })
         return meta
 
@@ -261,6 +266,8 @@ class MigrationOrchestrator:
             publish_payload["categories"] = cats
         if original_meta.get("tags"):
             publish_payload["tags"] = original_meta["tags"]
+        if original_meta.get("featured_media"):
+            publish_payload["featured_media"] = original_meta["featured_media"]
         publish_result = self.wp.put(f"{post_type}s/{draft_id}", json_data=publish_payload)
         if isinstance(publish_result, dict) and publish_result.get("id"):
             logger.info("  ✅ Published migrated draft (original date/cats/tags preserved)")

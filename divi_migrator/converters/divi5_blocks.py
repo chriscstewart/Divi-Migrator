@@ -325,24 +325,27 @@ def heading(text_content: str, level: str = "h2", color: str | None = None, alig
 
 
 def _button_module(text_content: str, url: str, color: str = "#e8cb90", alignment: str = "center") -> dict[str, Any]:  # noqa: E501
-    """Build button block attributes (top-level ``button`` + ``module``)."""
+    """Build button block attributes (canonical Divi 5 shape).
+
+    Button content MUST be ``button.innerContent.desktop.value`` as an OBJECT
+    ``{text, linkUrl}`` — a plain string renders as the default "Click Me".
+    Styling lives on ``button.decoration.*`` (not ``module.decoration``).
+    ``icon.enable: "off"`` suppresses Divi's default hover arrow. Alignment is
+    a sibling of ``button.decoration.sizing``. See module-formats.md.
+    """
     return {
         "button": {
             "innerContent": {
-                "desktop": {"value": text_content}
+                "desktop": {"value": {"text": text_content, "linkUrl": url}}
             },
-            "url": {"desktop": {"value": url}},
-            "color": {"desktop": {"value": color}},
-            "alignment": {"desktop": {"value": alignment}},
-            "sizing": {
-                "desktop": {"value": {"width": "auto", "minWidth": "0"}},
-                "phone": {"value": {"width": "100%", "minWidth": "0"}},
-                "phoneWide": {"value": {"width": "100%", "minWidth": "0"}},
+            "decoration": {
+                "button": {"desktop": {"value": {"icon": {"enable": "off"}}}},
+                "sizing": {"desktop": {"value": {"alignment": alignment}}},
             },
         },
         "module": {
             "decoration": {
-                "layout": {"desktop": {"value": {"display": "flex"}}}
+                "animation": {"desktop": {"value": {"style": "fade", "delay": "0ms"}}}
             }
         },
     }
@@ -362,19 +365,18 @@ def button(text_content: str, url: str, color: str = "#e8cb90", alignment: str =
 
 
 def _image_module(src: str, alt: str = "", link: str | None = None) -> dict[str, Any]:
-    """Build image block attributes (top-level ``image`` + ``module``)."""
+    """Build image block attributes (canonical Divi 5 shape).
+
+    Image content MUST be ``image.innerContent.desktop.value`` as an OBJECT
+    ``{src, id, alt, titleText}`` — a bare URL or ``{src, alt}`` only renders
+    an empty/incomplete module. ``id`` is the WP attachment ID (0 if unknown).
+    """
+    value: dict[str, Any] = {"src": src, "id": 0, "alt": alt, "titleText": alt}
     m: dict[str, Any] = {
-        "image": {
-            "innerContent": {
-                "desktop": {"value": {"src": src, "alt": alt}}
-            }
-        },
+        "image": {"innerContent": {"desktop": {"value": value}}},
         "module": {
             "decoration": {
-                "attributes": {
-                    "attributes": [],
-                    "desktop": {"value": {"attributes": []}},
-                }
+                "animation": {"desktop": {"value": {"style": "fade", "delay": "150ms"}}}
             }
         },
     }
@@ -484,19 +486,32 @@ def blurb(title: str, content: str, icon: str | None = None, image: str | None =
 
 
 def _video_module(src: str, type_: str = "youtube") -> dict[str, Any]:
-    """Build video module attributes."""
+    """Build the inner `video` attribute object (used in both module + top-level).
+
+    Divi's REST rendering pipeline reads the **top-level** `video` key (sibling of
+    `module`), NOT the nested `module.video` key. So the video value must live in
+    BOTH places. The value shape is `video.innerContent.desktop.value = {src, type}`
+    (an object, like button/image), where `src` is the YouTube/Vimeo/self-hosted
+    URL and `type` is youtube|vimeo|video.
+    """
     return {
         "video": {
-            "innerContent": {
-                "desktop": {"value": {"src": src, "type": type_}}
-            }
+            "innerContent": {"desktop": {"value": {"src": src, "type": type_}}},
+            "type": {"desktop": {"value": type_}},
         }
     }
 
 
 def video(src: str, type_: str = "youtube", **attrs: Any) -> str:
-    """Create a divi/video block."""
-    m = {"module": _video_module(src, type_)}
+    """Create a divi/video block.
+
+    CRITICAL: Divi's REST rendering pipeline reads the TOP-LEVEL ``video`` key,
+    not the nested ``module.video`` key. So we emit the video object in BOTH
+    places (module + top-level sibling of module/builderVersion). Without the
+    top-level ``video`` key the module renders EMPTY (no URL in editor).
+    """
+    vm = _video_module(src, type_)
+    m: dict[str, Any] = {"module": vm, "video": vm["video"]}
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/video", m, is_self_closing=True)
@@ -859,12 +874,34 @@ def icon_list(items: list[dict[str, Any]] | None = None, **attrs: Any) -> str:
 
 
 def _clean_html(content: str) -> str:
-    """Clean HTML content (fix smart quotes, etc.)."""
+    """Clean HTML content (decode entities, fix smart quotes, strip leaky attrs)."""
     if not content:
         return ""
+    # Avada stores shortcode body HTML with HTML-entity quotes (&quot;, &#8221;)
+    # and/or backslash-escaped quotes (\"). Decode entities and collapse any run
+    # of leading backslashes before a quote so downstream attribute stripping
+    # and Divi's parser see real quotes.
+    import html as _html
+
+    content = _html.unescape(content)
+    content = re.sub(r"\\+([\"'])", r"\1", content)
     content = content.replace("\u201c", '"').replace("\u201d", '"')
     content = content.replace("\u2018", "'").replace("\u2019", "'")
     content = content.replace("\u00d7", "x")
     content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
+    # Strip <img> attributes that leak raw markup into divi/text modules.
+    # Avada/WordPress emits srcset/sizes/loading with dynamic @url: tokens that
+    # Divi's Visual Builder renders literally (e.g. '@url:... 200w" sizes=...').
+    # Divi regenerates responsive sizing, so these are safe to drop. Match each
+    # attribute independently (not anchored to <img) so every occurrence is
+    # removed, regardless of position in the tag.
+    content = re.sub(
+        r'\s+(?:srcset|sizes|loading|decoding|data-[a-z0-9_-]+)="[^"]*"',
+        "",
+        content,
+        flags=re.IGNORECASE,
+    )
+    # Drop any leftover standalone @url: dynamic tokens anywhere in text.
+    content = content.replace("@url:", "")
     return content.strip()
 
