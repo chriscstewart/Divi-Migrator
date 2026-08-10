@@ -24,7 +24,7 @@ class AvadaConverter(BaseConverter):
         r"\[fusion_builder_column[^\]]*\](.*?)\[/fusion_builder_column\]", re.DOTALL
     )
     TEXT_PATTERN = re.compile(r"\[fusion_text[^\]]*\](.*?)\[/fusion_text\]", re.DOTALL)
-    TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\](?:.*?\[/fusion_title\])?", re.DOTALL)  # noqa: E501
+    TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\]((?:.|\n)*?)(?:\[/fusion_title\])?", re.DOTALL)  # noqa: E501
     BUTTON_PATTERN = re.compile(
         r"\[fusion_button\b[^\]]*\](.*?)\[/fusion_button\]|\[fusion_button\b[^\]]*\]", re.DOTALL
     )
@@ -540,28 +540,147 @@ class AvadaConverter(BaseConverter):
         return column(inner_content, layout=divi_layout)
 
     def _convert_text_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_text to Divi 5 text block."""
-        from divi_migrator.converters.divi5_blocks import text, _clean_html  # noqa: PLC0415
+        """Convert fusion_text to Divi 5 text block.
+
+        Avada frequently uses a single fusion_text to carry a heading plus its
+        following paragraph (e.g. ``<h2>Title</h2><p>body...</p>``). In that
+        case, split it: emit a real ``divi/heading`` for the leading heading so
+        it is editable/semantic, and a ``divi/text`` for any remaining body. If
+        the body is only a heading (with optional wrapping <p>), emit just the
+        heading. Otherwise emit the whole thing as divi/text.
+        """
+        from divi_migrator.converters.divi5_blocks import (  # noqa: PLC0415
+            text,
+            heading,
+            _clean_html,
+        )
+
         inner = match.group(1)
-        return text(_clean_html(inner))
+        cleaned = _clean_html(inner).strip()
+        # Strip any stray leading close-tags (e.g. a "</p>" left unclosed from the
+        # previous block) and leading whitespace before pattern matching.
+        cleaned = re.sub(r"^(</[a-z][a-z0-9]*>\s*)+", "", cleaned, flags=re.IGNORECASE)
+
+        # Find a leading heading element at the very start of the body.
+        lead = re.match(
+            r"\s*(?:<p[^>]*>\s*)?(<h[1-6][^>]*>.*?</h[1-6]>)\s*(?:</p>)?",
+            cleaned,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if lead:
+            h_tag = lead.group(1)
+            lvl = re.match(r"<h([1-6])", h_tag, re.IGNORECASE)
+            level = f"h{lvl.group(1)}" if lvl else "h2"
+            h_inner = _clean_html(
+                re.sub(r"</?h[1-6][^>]*>", "", h_tag, flags=re.IGNORECASE).strip()
+            )
+            # Pull alignment + color out of the heading tag's style attribute.
+            h_style = re.search(r"<h[1-6][^>]*\sstyle=\"([^\"]*)\"", h_tag, re.IGNORECASE)
+            alignment = "left"
+            color = None
+            if h_style:
+                st = h_style.group(1).lower()
+                am = re.search(r"text-align\s*:\s*([a-z]+)", st)
+                if am:
+                    alignment = am.group(1)
+                cm = re.search(r"color\s*:\s*(#[0-9a-f]{3,8}|rgba?\([^)]*\))", st)
+                if cm:
+                    color = cm.group(1)
+            rest = cleaned[lead.end():].strip()
+            rest = _clean_html(rest).strip()
+            if h_inner:
+                if rest:
+                    return heading(h_inner, level, color=color, alignment=alignment) + text(rest)
+                return heading(h_inner, level, color=color, alignment=alignment)
+        return text(cleaned)
 
     def _convert_title_to_block(self, match: re.Match[str]) -> str:
-        """Convert fusion_title to Divi 5 heading block."""
-        from divi_migrator.converters.divi5_blocks import heading  # noqa: PLC0415
+        """Convert fusion_title to Divi 5 heading block.
+
+        Avada stores the heading text in one of several places:
+          * a ``title="..."`` attribute (simple titles)
+          * ``before_text`` / ``highlight_text`` / ``after_text`` attributes
+            (animated "title_type=text" titles with highlight/rotation)
+          * ``rotation_text`` (rotating-text titles)
+          * inner HTML content between ``[fusion_title]...[/fusion_title]``
+            (e.g. ``<h2><span>...</span></h2>``)
+
+        We reconstruct the full text and emit a real ``divi/heading`` module.
+        If the content is rich/complex HTML (not a simple phrase) we fall back
+        to a ``divi/text`` module so styling is preserved.
+        """
+        from divi_migrator.converters.divi5_blocks import (  # noqa: PLC0415
+            heading,
+            text,
+            _clean_html,
+        )
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
+        inner = match.group(1).strip() if match.lastindex and match.group(1) else ""
 
-        title_text = attrs.get("title", "")
-        if not title_text and match.lastindex:
-            title_text = match.group(1).strip()
+        # Reconstruct the heading text from all possible sources.
+        parts: list[str] = []
+        title_attr = attrs.get("title", "").strip()
+        before = attrs.get("before_text", "").strip()
+        highlight = attrs.get("highlight_text", "").strip()
+        after = attrs.get("after_text", "").strip()
+        rotation = attrs.get("rotation_text", "").strip()
+
+        if title_attr:
+            parts.append(title_attr)
+        if before:
+            parts.append(before)
+        if highlight:
+            parts.append(highlight)
+        if after:
+            parts.append(after)
+        if rotation:
+            parts.append(rotation)
+
+        if parts:
+            # Join the pieces (animated titles concatenate before+highlight+after).
+            title_text = " ".join(p for p in parts if p).strip()
+            title_text = _clean_html(title_text)
+        elif inner:
+            # Inner HTML content (e.g. <h2><span>...</span></h2>).
+            # Strip the wrapping heading tags, keep inner markup + text.
+            stripped = re.sub(r"</?h[1-6][^>]*>", "", inner, flags=re.IGNORECASE).strip()
+            # A pure-text heading -> divi/heading; rich HTML -> divi/text.
+            if re.search(r"<(?!/?(?:b|strong|em|i|span|br|u|sub|sup|a)\b)[a-z]", stripped, re.IGNORECASE):
+                return text(_clean_html(inner))
+            title_text = _clean_html(stripped)
+        else:
+            # No discoverable text — emit an empty heading to preserve layout.
+            title_text = ""
+
+        title_text = title_text.strip()
+        if not title_text:
+            # Avada's fusion_title here is an empty placeholder (no title attr,
+            # no inner content). Emitting an empty divi/heading produces a blank
+            # module in the Visual Builder — drop it instead.
+            return ""
+
         size = attrs.get("size", "")
         color = attrs.get("color", "")
-        alignment = attrs.get("alignment", "left")
+        alignment = attrs.get("content_align") or attrs.get("alignment", "left")
 
-        level_map = {"small": "h4", "medium": "h3", "large": "h2", "h1": "h1", "h2": "h2", "h3": "h3", "h4": "h4"}  # noqa: E501
+        level_map = {
+            "small": "h4",
+            "medium": "h3",
+            "large": "h2",
+            "1": "h1",
+            "2": "h2",
+            "3": "h3",
+            "4": "h4",
+            "h1": "h1",
+            "h2": "h2",
+            "h3": "h3",
+            "h4": "h4",
+        }
         level = level_map.get(size, "h2")
 
-        return heading(title_text, level, color=color, alignment=alignment)
+        return heading(title_text, level, color=color or None, alignment=alignment)
 
     def _convert_button_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_button to a real divi/button module.
