@@ -24,10 +24,19 @@ class AvadaConverter(BaseConverter):
         r"(\[fusion_builder_column[^\]]*\]((?:.|\n)*?)\[/fusion_builder_column\])",
         re.DOTALL,
     )
-    TEXT_PATTERN = re.compile(r"\[fusion_text[^\]]*\](.*?)\[/fusion_text\]", re.DOTALL)
-    TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\]((?:.|\n)*?)(?:\[/fusion_title\])?", re.DOTALL)  # noqa: E501
+    TEXT_PATTERN = re.compile(r"\[fusion_text[^\]]*\]((?:.|\n)*?)\[/fusion_text\]", re.DOTALL)
+    # Self-closing fusion_title tags (e.g. "[fusion_title ... /]") carry no
+    # content — drop them before the real title pattern runs.
+    TITLE_SELFCLOSE_PATTERN = re.compile(r"\[fusion_title[^\]]*?/\]")
+    # fusion_title with a real closing tag. The close is REQUIRED (not optional)
+    # so the lazy inner match cannot collapse to empty and leave the title +
+    # its [/fusion_title] as raw text (the original bug).
+    TITLE_PATTERN = re.compile(
+        r"\[fusion_title[^\]]*\]((?:.|\n)*?)\[/fusion_title\]",
+        re.DOTALL,
+    )
     BUTTON_PATTERN = re.compile(
-        r"\[fusion_button\b[^\]]*\](.*?)\[/fusion_button\]|\[fusion_button\b[^\]]*\]", re.DOTALL
+        r"\[fusion_button\b[^\]]*\]((?:.|\n)*?)\[/fusion_button\]|\[fusion_button\b[^\]]*\]", re.DOTALL
     )
     IMAGE_PATTERN = re.compile(
         r"\[fusion_imageframe\b[^\]]*\](?:.*?\[/fusion_imageframe\])?", re.DOTALL
@@ -338,7 +347,15 @@ class AvadaConverter(BaseConverter):
         def replace_container(match: re.Match[str]) -> str:
             return self._convert_container_to_blocks(match)
 
-        return self.CONTAINER_PATTERN.sub(replace_container, content)
+        converted = self.CONTAINER_PATTERN.sub(replace_container, content)
+        # Final sweep: drop any leftover fusion_title tags (self-closing or
+        # unclosed) that fell outside rows/columns and were never converted.
+        converted = re.sub(
+            r"\[fusion_title[^\]]*?/\]|\[fusion_title[^\]]*?\][\s\S]*?(?:\[/fusion_title\]|$)",
+            "",
+            converted,
+        )
+        return converted
 
     def _convert_container_to_blocks(self, match: re.Match[str]) -> str:
         """Convert fusion_builder_container to Divi 5 blocks."""
@@ -382,24 +399,49 @@ class AvadaConverter(BaseConverter):
         )
 
     def _convert_row_to_blocks(self, row_match: str) -> str:
-        """Convert fusion_builder_row to Divi 5 row block."""
+        """Convert fusion_builder_row to Divi 5 row block(s).
+
+        Avada renders a ``1_1`` (``4_4``) column that sits inside a multi-column
+        row as visually full-width text (it stacks). Divi 5 keeps such a column
+        as a narrow flex cell, which looks like a stray "added first column".
+        To match the original's visual look, when a row has MORE than one column
+        but contains a full-width (``1_1``/``4_4``) column, we promote that
+        full-width column into its own single-column row, and keep the remaining
+        (narrow) columns together in a separate row. This preserves the intended
+        layout: a full-width banner above a real multi-column row.
+        """
         from divi_migrator.converters.divi5_blocks import row, row_flex  # noqa: PLC0415
 
         row_attrs = self.extract_row_attrs(row_match)
-        columns = self.COLUMN_PATTERN.findall(row_match)
+        columns = [c for c in self.COLUMN_PATTERN.findall(row_match) if c[1].strip()]
 
-        # Process columns
-        col_blocks = []
+        # Build (col_block, is_fullwidth) tuples, dropping empties.
+        built: list[tuple[str, bool]] = []
         for col_match in columns:
             col_block = self._convert_column_to_blocks(col_match)
-            if col_block:
-                col_blocks.append(col_block)
+            if not col_block:
+                continue
+            whole, _ = col_match
+            layout = self.extract_column_attrs(whole).get("divi_layout", "4_4")
+            is_full = layout in ("1_1", "4_4")
+            built.append((col_block, is_full))
 
-        if not col_blocks:
+        if not built:
             return ""
 
-        columns_html = "".join(col_blocks)
-        flex_columns = len(col_blocks)
+        # Promote full-width columns out of a genuine multi-column row.
+        full_cols = [b for b, f in built if f]
+        narrow_cols = [b for b, f in built if not f]
+        if len(built) > 1 and full_cols and narrow_cols:
+            sections: list[str] = []
+            full_row = row("".join(full_cols), layout="4_4", flex_columns=len(full_cols))
+            narrow_row = row("".join(narrow_cols), layout="4_4", flex_columns=len(narrow_cols))
+            sections.append(full_row)
+            sections.append(narrow_row)
+            return "".join(sections)
+
+        columns_html = "".join(b for b, _ in built)
+        flex_columns = len(built)
 
         # Row background migrated from source (canonical shape via build_background
         # inside row_flex). The correct shape POSTs cleanly (HTTP 201, no fatal),
@@ -435,6 +477,8 @@ class AvadaConverter(BaseConverter):
         inner_content = self.TESTIMONIALS_PATTERN.sub(self._convert_testimonials_to_block, inner_content)  # noqa: E501
         inner_content = self.CONTENT_BOXES_PATTERN.sub(self._convert_content_boxes_to_block, inner_content)  # noqa: E501
         inner_content = self.FAQ_PATTERN.sub(self._convert_faq_to_block, inner_content)
+        # Drop empty self-closing fusion_title tags before individual-item processing.
+        inner_content = self.TITLE_SELFCLOSE_PATTERN.sub("", inner_content)
         inner_content = self.TABS_PATTERN.sub(self._convert_tabs_to_block, inner_content)
 
         # Then process individual items
