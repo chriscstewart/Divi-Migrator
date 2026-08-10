@@ -146,12 +146,14 @@ def _row_module(
     flex: dict[str, Any] | None = None,
     spacing: dict[str, Any] | None = None,
     background: dict[str, Any] | None = None,
+    flex_columns: int = 2,
 ) -> dict[str, Any]:
     """Build row module attributes."""
+    fc = max(1, min(flex_columns, 6))
     m: dict[str, Any] = {
         "advanced": {
             "columnStructure": {"desktop": {"value": column_structure}},
-            "flexColumnStructure": {"desktop": {"value": "equal-columns_2"}},
+            "flexColumnStructure": {"desktop": {"value": f"equal-columns_{fc}"}},
         },
         "decoration": {
             "layout": {
@@ -170,9 +172,9 @@ def _row_module(
     return m
 
 
-def row(inner: str, columns: str = "4_4", **attrs: Any) -> str:
+def row(inner: str, columns: str = "4_4", flex_columns: int = 2, **attrs: Any) -> str:
     """Create a divi/row block."""
-    m = {"module": _row_module(columns)}
+    m = {"module": _row_module(columns, flex_columns=flex_columns)}
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/row", m, inner=inner, is_self_closing=False)
@@ -184,12 +186,13 @@ def row_flex(
     flex: dict[str, Any] | None = None,
     background_color: str | None = None,
     background_image: dict[str, Any] | None = None,
+    flex_columns: int = 2,
     **attrs: Any,
 ) -> str:
     """Create a flex row with optional background."""
     img = background_image.get("src") if isinstance(background_image, dict) else background_image
     bg = build_background(color=background_color, image_url=img)
-    m = {"module": _row_module(column_structure, flex, background=bg)}
+    m = {"module": _row_module(column_structure, flex, background=bg, flex_columns=flex_columns)}
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/row", m, inner=inner, is_self_closing=False)
@@ -200,15 +203,29 @@ def row_flex(
 # =============================================================================
 
 
-def _column_module(layout: str = "4_4", module_attrs: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: E501
+# Avada column fraction -> Divi 5 flexType (the actual flex-basis ratio).
+# Everything else (5ths/6ths) falls back to equal 24_24 so we never emit an
+# unknown fraction that Divi can't render.
+LAYOUT_TO_FLEXTYPE: dict[str, str] = {
+    "4_4": "24_24",   # 1_1 full
+    "2_4": "12_12",   # 1_2 half
+    "3_12": "8_12",   # 1_3
+    "6_12": "16_12",  # 2_3
+    "2_12": "6_12",   # 1_4
+    "9_12": "18_12",  # 3_4
+}
+
+
+def _column_module(layout: str = "4_4", module_attrs: dict[str, Any] | None = None, flex_type: str | None = None) -> dict[str, Any]:  # noqa: E501
     """Build column module attributes."""
+    flex = flex_type or LAYOUT_TO_FLEXTYPE.get(layout, "24_24")
     m: dict[str, Any] = {
         "advanced": {
             "type": {"desktop": {"value": layout}},
         },
         "decoration": {
             "sizing": {
-                "desktop": {"value": {"flexType": "24_24"}},
+                "desktop": {"value": {"flexType": flex}},
                 "phone": {"value": {"flexType": "24_24"}},
                 "phoneWide": {"value": {"flexType": "24_24"}},
             }
@@ -219,9 +236,9 @@ def _column_module(layout: str = "4_4", module_attrs: dict[str, Any] | None = No
     return m
 
 
-def column(inner: str, layout: str = "4_4", module: dict[str, Any] | None = None, **attrs: Any) -> str:  # noqa: E501
+def column(inner: str, layout: str = "4_4", module: dict[str, Any] | None = None, flex_type: str | None = None, **attrs: Any) -> str:  # noqa: E501
     """Create a divi/column block."""
-    m = {"module": _column_module(layout, module)}
+    m = {"module": _column_module(layout, module, flex_type=flex_type)}
     if attrs:
         m = _deep_merge(m, attrs)
     return make_block("divi/column", m, inner=inner, is_self_closing=False)

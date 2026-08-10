@@ -21,7 +21,8 @@ class AvadaConverter(BaseConverter):
     )
     ROW_PATTERN = re.compile(r"\[fusion_builder_row[^\]]*\](.*?)\[/fusion_builder_row\]", re.DOTALL)  # noqa: E501
     COLUMN_PATTERN = re.compile(
-        r"\[fusion_builder_column[^\]]*\](.*?)\[/fusion_builder_column\]", re.DOTALL
+        r"(\[fusion_builder_column[^\]]*\]((?:.|\n)*?)\[/fusion_builder_column\])",
+        re.DOTALL,
     )
     TEXT_PATTERN = re.compile(r"\[fusion_text[^\]]*\](.*?)\[/fusion_text\]", re.DOTALL)
     TITLE_PATTERN = re.compile(r"\[fusion_title[^\]]*\]((?:.|\n)*?)(?:\[/fusion_title\])?", re.DOTALL)  # noqa: E501
@@ -398,6 +399,7 @@ class AvadaConverter(BaseConverter):
             return ""
 
         columns_html = "".join(col_blocks)
+        flex_columns = len(col_blocks)
 
         # Row background migrated from source (canonical shape via build_background
         # inside row_flex). The correct shape POSTs cleanly (HTTP 201, no fatal),
@@ -409,17 +411,24 @@ class AvadaConverter(BaseConverter):
         if bg_color or bg_image:
             return row_flex(
                 columns_html,
+                flex_columns=flex_columns,
                 background_color=bg_color,
                 background_image=({"src": bg_image} if bg_image else None),
             )
-        return row(columns_html, layout="4_4")
+        return row(columns_html, layout="4_4", flex_columns=flex_columns)
 
-    def _convert_column_to_blocks(self, column_match: str) -> str:
-        """Convert fusion_builder_column to Divi 5 column block."""
+    def _convert_column_to_blocks(self, column_match: tuple[str, str]) -> str:
+        """Convert fusion_builder_column to Divi 5 column block.
+
+        ``column_match`` is the tuple ``(whole_block, inner_content)`` returned
+        by ``COLUMN_PATTERN.findall``. Attribute extraction must run on
+        ``whole_block`` (the opening tag carries ``type``/``layout``); content
+        conversion runs on ``inner_content``.
+        """
         from divi_migrator.converters.divi5_blocks import column  # noqa: PLC0415
 
-        col_attrs = self.extract_column_attrs(column_match)
-        inner_content = column_match
+        whole_block, inner_content = column_match
+        col_attrs = self.extract_column_attrs(whole_block)
 
         # Process inner content - convert to Divi 5 blocks
         # IMPORTANT: Process WRAPPER patterns FIRST (they contain individual items)
@@ -535,7 +544,11 @@ class AvadaConverter(BaseConverter):
         divi_layout = col_attrs.get("divi_layout", "4_4")
 
         if not inner_content.strip():
-            return column("", layout=divi_layout)
+            # Avada's fusion_builder_column was an empty placeholder (no inner
+            # content). Emitting an empty divi/column makes Divi render a stray
+            # visible "empty column" — the extra column you see in some rows.
+            # Drop it instead so the row keeps only its real columns.
+            return ""
 
         return column(inner_content, layout=divi_layout)
 
