@@ -16,7 +16,6 @@ migration:
   checkpoint_dir: "./checkpoints"
   max_retries: 3
   timeout: 30
-  max_content_length: 10000000
   post_type: "page"  # page or post
 
 verification:

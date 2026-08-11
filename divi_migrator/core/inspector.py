@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from divi_migrator.config import Config
@@ -39,6 +40,10 @@ class DesignSystemInspector:
 
         # Fetch global colors
         ds.colors = self._fetch_global_colors()
+
+        # Backfill any missing global colors from the current Home page
+        # (secondary source — never a hardcoded hex).
+        self._backfill_from_home_page(ds.colors)
 
         # Fetch global fonts
         ds.fonts = self._fetch_global_fonts()
@@ -92,6 +97,49 @@ class DesignSystemInspector:
         except Exception as e:
             logger.warning("Failed to fetch global colors: %s", e)
             return GlobalColors()
+
+    def _backfill_from_home_page(self, gc: GlobalColors) -> None:
+        """Use the current Home page as a secondary color source.
+
+        Resolution order for every color token: Divi Customizer wins; the Home
+        page fills any gaps. Never injects a hardcoded hex — if the Home page
+        has no usable color, the token simply stays absent.
+        """
+        try:
+            settings = self.wp.get("wp/v2/settings")
+            front_id = None
+            if isinstance(settings, dict):
+                front_id = settings.get("page_on_front")
+            if not front_id:
+                return
+            home = self.wp.get(f"wp/v2/pages/{front_id}")
+            if not isinstance(home, dict):
+                return
+            content = home.get("content")
+            raw = content.get("rendered", "") if isinstance(content, dict) else ""
+            # Best-effort: pull a background-color from inline styles in the
+            # Home page's Divi layout. This is heuristic and may yield nothing.
+            for token_key, pattern in [
+                ("gcid-background-color", r"background-color:\s*(#[0-9a-fA-F]{3,8})\b"),
+                ("gcid-primary-color", r"color:\s*(#[0-9a-fA-F]{3,8})\b"),
+            ]:
+                if token_key in gc.colors:
+                    continue  # Customizer already provided it
+                m = re.search(pattern, raw)
+                if m:
+                    gc.colors[token_key] = ColorToken(
+                        key=token_key,
+                        label=token_key,
+                        color=m.group(1),
+                        source="home_page",
+                    )
+            # Site background specifically
+            if gc.home_page_background is None:
+                m = re.search(r"background-color:\s*(#[0-9a-fA-F]{3,8})\b", raw)
+                if m:
+                    gc.home_page_background = m.group(1)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Home page backfill skipped: %s", e)
 
     def _fetch_global_fonts(self) -> GlobalFonts:
         """Fetch global fonts from DiviOps."""

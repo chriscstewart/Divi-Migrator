@@ -119,7 +119,8 @@ they rely on the audit trail and the `_divi_migrator` provenance meta key.
 > all other original metadata (date, slug, categories, tags, featured image)
 > is preserved. This is by design: once you're happy with the migration you
 > can **bulk-edit the author**, or **bulk-delete all migrated items** with
-> `divi-migrate cleanup --author <migration-user-id>`. Pages and posts are both
+> `divi-migrate cleanup --author` (defaults to the authenticated migration
+> user's ID, so no manual ID lookup is needed). Pages and posts are both
 > identifiable this way (WordPress authors both). The original author is kept
 > only in the audit trail so `rollback` can restore it.
 
@@ -261,6 +262,10 @@ To use your custom converter, ensure the module is imported (so `registry.regist
 runs) before invoking the CLI, e.g. via an entry point or by importing it in your
 own script that calls the library.
 
+> 📚 **Maintainer reference:** the full Fusion-shortcode → Divi 5 module map
+> (including which modules render natively vs. as semantic HTML inside a text
+> block) lives in [`docs/FUSION_TO_DIVI_MAPPING.md`](docs/FUSION_TO_DIVI_MAPPING.md).
+
 ---
 
 ## 📁 Project Structure
@@ -316,6 +321,15 @@ mypy --strict divi_migrator
 ---
 
 ## ⚠️ Known Limitations
+
+### Design-System Colors Are Fetched Live (Never Hardcoded)
+
+The inspector resolves global colors from the **live Divi Customizer**, then
+backfills any gaps from the **current Home page**. There are **no hardcoded hex
+fallbacks** anywhere — if a color can't be fetched live it resolves to `None`
+and the relevant check is skipped rather than injecting a guess. The actual
+migrated content always carries its own source colors, so this only affects the
+optional verification/reference aid.
 
 ### Section / Row / Module Backgrounds (DiviOps rendering)
 

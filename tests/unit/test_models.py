@@ -20,12 +20,21 @@ EXPECTED_MODULES = 5
 
 
 def test_design_system_defaults():
+    # defaults() must contain NO hardcoded hex colors — callers handle
+    # missing design-system values gracefully.
     ds = DesignSystem.defaults()
-    assert ds.colors.get("gcid-primary-color") == "#770000"
-    assert ds.colors.get("gcid-secondary-color") == "#6b6b4c"
-    assert ds.colors.get("gcid-heading-color") == "#613335"
-    assert ds.colors.get("gcid-body-color") == "#4a3f35"
-    assert ds.colors.get("gcid-link-color") == "#7c7c4c"
+    assert ds.colors.get("gcid-primary-color") is None
+    assert ds.colors.get("gcid-secondary-color") is None
+    assert ds.colors.get("gcid-heading-color") is None
+    assert ds.colors.get("gcid-body-color") is None
+    assert ds.colors.get("gcid-link-color") is None
+
+
+def test_global_colors_fallback_is_none():
+    # When a token is absent, the helper returns None (never a hardcoded hex).
+    gc = GlobalColors()
+    assert gc.primary() is None
+    assert gc.primary_background() is None
 
 
 def test_global_colors_get():

@@ -20,8 +20,8 @@ from hashlib import sha256
 logger = logging.getLogger(__name__)
 
 # Shared hosts cap `context=edit` listing at ~100 rows, so we fetch originals
-# per author with a small page size to stay safely under that limit.
-AUDIT_FETCH_PER_PAGE = 50
+# per author with a small page size (config.migration.batch_size, default 50)
+# to stay safely under that limit.
 ORIGINAL_AUTHORS = (1, 2)
 
 MIGRATION_CATEGORY_SLUG = "divi-migrator"
@@ -49,11 +49,11 @@ class MigrationOrchestrator:
             self._design_system = fetch_design_system(self.config, self.wp, self.diviops)
         return self._design_system
 
-    def _get_primary_bg_color(self) -> str:
+    def _get_primary_bg_color(self) -> str | None:
         ds = self._get_design_system()
-        if hasattr(ds, "primary_background_color") and ds.primary_background_color:
+        if ds.primary_background_color:
             return str(ds.primary_background_color)
-        return "#ffffff"
+        return None
 
     def _get_original_metadata(self, post_type: str, item_id: int) -> dict[str, Any]:
         """Extract original metadata to preserve - from audit (immutable) or WP.
@@ -483,7 +483,7 @@ class MigrationOrchestrator:
                 chunk = self.wp.get_items(
                     "page",
                     status="any",
-                    per_page=AUDIT_FETCH_PER_PAGE,
+                    per_page=self.config.migration.batch_size,
                     page=page_num,
                     context="edit",
                     author=author,
@@ -491,7 +491,7 @@ class MigrationOrchestrator:
                 if not chunk:
                     break
                 pages.extend(chunk)
-                if len(chunk) < AUDIT_FETCH_PER_PAGE:
+                if len(chunk) < self.config.migration.batch_size:
                     break
                 page_num += 1
             page_num = 1
@@ -499,7 +499,7 @@ class MigrationOrchestrator:
                 chunk = self.wp.get_items(
                     "post",
                     status="any",
-                    per_page=AUDIT_FETCH_PER_PAGE,
+                    per_page=self.config.migration.batch_size,
                     page=page_num,
                     context="edit",
                     author=author,
@@ -507,7 +507,7 @@ class MigrationOrchestrator:
                 if not chunk:
                     break
                 posts.extend(chunk)
-                if len(chunk) < AUDIT_FETCH_PER_PAGE:
+                if len(chunk) < self.config.migration.batch_size:
                     break
                 page_num += 1
         # Enforce author filter client-side too (author param is best-effort).

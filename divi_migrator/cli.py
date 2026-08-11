@@ -220,8 +220,8 @@ def audit_init(
 
     # Cheap shared hosts cap `context=edit` listing at ~100 rows total, so a
     # blanket `status=any` query silently drops items past the cap. Fetch PER
-    # AUTHOR (per_page=50 keeps each author's query under the cap) and merge.
-    audit_per_page = 50
+    # AUTHOR (per_page=batch_size keeps each author's query under the cap) and merge.
+    audit_per_page = cfg.migration.batch_size
     all_pages: list[dict[str, Any]] = []
     all_posts: list[dict[str, Any]] = []
     for author in (1, 2):
@@ -369,16 +369,35 @@ def audit_rollback(
 def audit_cleanup_ai(
     ctx: typer.Context,
     config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
-    author_id: int = typer.Option(
-        292, "--author", help="Author ID to cleanup (default: 292 = AI-Dev-MCPs)"
+    author_id: int | None = typer.Option(
+        None,
+        "--author",
+        help="Author ID to cleanup. Defaults to the authenticated WP_USER's ID "
+        "(the migration user). Find any user's ID in WP Admin → Users.",
     ),  # noqa: E501
     post_type: str = typer.Option("page", "--type", "-t", help="Post type: page or post"),
     force: bool = typer.Option(False, "--force", help="Actually delete (default: dry run)"),
 ) -> None:
-    """Clean up AI-generated content by author ID."""
+    """Clean up migrated content by author ID (the migration user by default)."""
     non_interactive = get_non_interactive(ctx)
     cfg = load_config(config, non_interactive=non_interactive)
     wp = WPClient(cfg)
+
+    # Default to the authenticated migration user's ID so cleanup reliably
+    # targets what this tool created (author is never changed on migration).
+    if author_id is None:
+        try:
+            me = wp.get("wp/v2/users/me")
+            if isinstance(me, dict) and me.get("id"):
+                author_id = int(me["id"])
+        except Exception as e:  # noqa: BLE001
+            console.print(f"[yellow]Could not resolve migration-user ID: {e}[/yellow]")
+    if author_id is None:
+        console.print(
+            "[red]Could not determine the migration user's author ID. "
+            "Pass --author <id> explicitly (find it in WP Admin → Users).[/red]"
+        )
+        raise typer.Abort()
 
     if force:
         console.print(

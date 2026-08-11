@@ -54,7 +54,6 @@ class MigrationSettings(BaseSettings):
     checkpoint_dir: Path = Field(Path.cwd() / "checkpoints", description="Checkpoint directory")
     max_retries: int = Field(5, description="Max retry attempts on transient 5xx/429")
     timeout: int = Field(60, description="Default request timeout (raise for slow shared hosting)")
-    max_content_length: int = Field(10_000_000, description="Max content length to process")
     post_type: str = Field("page", description="Post type: page or post")
 
 

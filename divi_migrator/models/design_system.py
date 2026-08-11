@@ -41,40 +41,45 @@ class GlobalColors:
     colors: dict[str, ColorToken] = field(default_factory=dict)
     # Store raw customizer data for background color lookup
     customizer_raw: dict[str, Any] = field(default_factory=dict)
+    # Background color scraped from the current Home page (secondary source)
+    home_page_background: str | None = None
 
     def get(self, key: str, default: str | None = None) -> str | None:
         """Get color hex by token key."""
         token = self.colors.get(key)
         return token.color if token else default
 
-    def primary(self) -> str:
-        """Get primary color."""
-        return self.get("gcid-primary-color", "#770000") or "#770000"
+    def primary(self) -> str | None:
+        """Get primary color from the fetched design system (no hardcoded fallback)."""
+        return self.get("gcid-primary-color")
 
-    def secondary(self) -> str:
-        return self.get("gcid-secondary-color", "#6b6b4c") or "#6b6b4c"
+    def secondary(self) -> str | None:
+        return self.get("gcid-secondary-color")
 
-    def heading(self) -> str:
-        return self.get("gcid-heading-color", "#613335") or "#613335"
+    def heading(self) -> str | None:
+        return self.get("gcid-heading-color")
 
-    def body(self) -> str:
-        return self.get("gcid-body-color", "#4a3f35") or "#4a3f35"
+    def body(self) -> str | None:
+        return self.get("gcid-body-color")
 
-    def link(self) -> str:
-        return self.get("gcid-link-color", "#7c7c4c") or "#7c7c4c"
+    def link(self) -> str | None:
+        return self.get("gcid-link-color")
 
-    def primary_background(self) -> str:
-        """Get the site background color from customizer."""
-        # Try to get from customizer data
-        # Common keys for site background in Divi customizer
+    def primary_background(self) -> str | None:
+        """Site background color.
+
+        Resolution order (never a hardcoded hex):
+          1. Divi Customizer raw values
+          2. The current Home page's background (fetched by the inspector)
+        Returns None if neither source yields a color.
+        """
         for key in ["background_color", "site_background", "gcid-background-color"]:
             if key in self.customizer_raw:
                 val = self.customizer_raw[key]
                 color: str = val.get("color", "") if isinstance(val, dict) else str(val)
                 if color:
                     return color
-        # Fallback to white
-        return "#ffffff"
+        return self.home_page_background
 
 
 @dataclass
@@ -135,26 +140,22 @@ class DesignSystem:
 
     @classmethod
     def defaults(cls) -> DesignSystem:
-        """Fallback defaults when inspection fails."""
-        ds = cls()
-        ds.colors.colors = {
-            "gcid-primary-color": ColorToken(
-                key="gcid-primary-color", label="Primary Color", color="#770000"
-            ),
-            "gcid-secondary-color": ColorToken(
-                key="gcid-secondary-color", label="Secondary Color", color="#6b6b4c"
-            ),
-            "gcid-heading-color": ColorToken(
-                key="gcid-heading-color", label="Heading Text Color", color="#613335"
-            ),
-            "gcid-body-color": ColorToken(
-                key="gcid-body-color", label="Body Text Color", color="#4a3f35"
-            ),
-            "gcid-link-color": ColorToken(
-                key="gcid-link-color", label="Link Color", color="#7c7c4c"
-            ),
-        }
-        return ds
+        """Empty fallback when inspection fails.
+
+        Intentionally contains NO hardcoded hex colors — callers must handle
+        missing design-system values gracefully (the migrated content carries
+        its own source colors; this is only a verification/reference aid).
+        """
+        return cls()
+
+    @property
+    def primary_background_color(self) -> str | None:
+        """Site background color resolved from the live design system.
+
+        Chains Customizer raw values then the Home page background. Never a
+        hardcoded hex; returns None if neither source has a color.
+        """
+        return self.colors.primary_background()
 
 
 @dataclass

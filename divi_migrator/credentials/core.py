@@ -144,7 +144,6 @@ class MigrationConfig:
     checkpoint_dir: str = "./checkpoints"
     max_retries: int = 3
     timeout: int = 30
-    max_content_length: int = 10_000_000
     post_type: str = "page"
 
     def to_config_dict(self) -> dict[str, Any]:
@@ -154,7 +153,6 @@ class MigrationConfig:
             "checkpoint_dir": self.checkpoint_dir,
             "max_retries": self.max_retries,
             "timeout": self.timeout,
-            "max_content_length": self.max_content_length,
             "post_type": self.post_type,
         }
 
@@ -276,7 +274,6 @@ class ConfigLoader:
                 checkpoint_dir=os.environ.get("MIGRATION_CHECKPOINT_DIR", "./checkpoints"),
                 max_retries=int(os.environ.get("MIGRATION_MAX_RETRIES", "3")),
                 timeout=int(os.environ.get("MIGRATION_TIMEOUT", "30")),
-                max_content_length=int(os.environ.get("MIGRATION_MAX_CONTENT_LENGTH", "10000000")),
                 post_type=os.environ.get("MIGRATION_POST_TYPE", "page"),
             ),
             source=CredentialSource.AGENT_ENV,
@@ -319,7 +316,6 @@ class ConfigLoader:
                 checkpoint_dir=migration_data.get("checkpoint_dir", "./checkpoints"),
                 max_retries=migration_data.get("max_retries", 3),
                 timeout=migration_data.get("timeout", 30),
-                max_content_length=migration_data.get("max_content_length", 10_000_000),
                 post_type=migration_data.get("post_type", "page"),
             )
 
@@ -386,9 +382,6 @@ class ConfigLoader:
                         checkpoint_dir=env_vars.get("MIGRATION_CHECKPOINT_DIR", "./checkpoints"),
                         max_retries=int(env_vars.get("MIGRATION_MAX_RETRIES", "3")),
                         timeout=int(env_vars.get("MIGRATION_TIMEOUT", "30")),
-                        max_content_length=int(
-                            env_vars.get("MIGRATION_MAX_CONTENT_LENGTH", "10000000")
-                        ),
                         post_type=env_vars.get("MIGRATION_POST_TYPE", "page"),
                     ),
                     source=CredentialSource.ENV_FILE,

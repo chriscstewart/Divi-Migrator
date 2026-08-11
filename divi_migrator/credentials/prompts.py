@@ -128,7 +128,6 @@ def prompt_for_credentials() -> CompleteConfig:
         checkpoint_dir="./checkpoints",
         max_retries=3,
         timeout=30,
-        max_content_length=10_000_000,
         post_type=post_type,
     )
 
