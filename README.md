@@ -1,7 +1,6 @@
 # divi-migrator
 
-> **WordPress Avada / Plain HTML → Divi 5 migration framework** (Elementor planned, not yet implemented).
-> Built for AI-assisted workflows, zero vendor lock-in.
+> **Migrate WordPress Avada / Plain HTML / Others? → Divi 5 Theme Framework. Vibe Coded (be warned!), built for AI-assisted workflows.**
 
 [![PyPI](https://img.shields.io/pypi/v/divi-migrator)](https://pypi.org/project/divi-migrator/)
 [![Python](https://img.shields.io/pypi/pyversions/divi-migrator)](https://pypi.org/project/divi-migrator/)
@@ -27,11 +26,12 @@
 | 🎯 **Format detection** | Auto-detects Avada or plain HTML (Elementor detection reserved for a future release) |
 | 🎨 **Design system** | Fetches global colors, fonts, presets from Divi Customizer |
 | 🔒 **Safe replacement** | Existing content renamed to `-old`, moved to Draft (not deleted) |
-| 🏷️ **Migration tracking** | All migrated content tagged with `divi-migrator` category |
+| 🏷️ **Migration tracking** | Migrated **posts** get a `divi-migrator` category; **all** migrated items (pages + posts) carry a `_divi_migrator` provenance meta key, and every original is recorded in the audit trail |
 | 🔄 **Resumable** | JSON checkpoint survives crashes/restarts |
 | 🧹 **Deduplication** | Keeps newest draft per source, removes rest |
 | ✅ **Verification** | Validates sections, rows, modules, images, buttons, colors |
-| ⚡ **Rate limiting** | Configurable, respects security plugins |
+| ⚡ **Rate limited** | Respects security plugins and shared-server resource limits |
+| ↩️ **Rollback** | `audit-rollback` / `rollback` restore originals and delete migrated content (originals are never destroyed — renamed to `-old`) |
 | 🔌 **Extensible** | Plugin architecture for new builders |
 
 
@@ -101,10 +101,18 @@ Ensure the target site runs Divi 5 (not Divi 4).
 
 **Confirm the new design foundation is correct before migration.** This is what all migrated content will use.
 
-### 4. Create a Dedicated WordPress Migration User
-- Create a separate account only for migration tasks
-- Generate an **Application Password** for this user
-- This isolates migration activity and simplifies rollback/auditing
+### 4. Use a WordPress User with an Application Password
+
+The migrator authenticates via any WordPress user + **Application Password**
+(WP 5.6+). You can use your own admin account, but we **recommend** a dedicated
+migration user (e.g. `migration-bot`) so activity is isolated and easy to audit.
+It is **not required** — tracking and rollback do not depend on the username;
+they rely on the audit trail and the `_divi_migrator` provenance meta key.
+
+- Create the user (or reuse an existing one) and generate an **Application Password**.
+- Supply the username + password via `WP_USER` / `WP_APP_PASSWORD` (env) or `config.yaml`.
+  If you use a different username than `migration-bot`, just set `WP_USER` to yours —
+  nothing else needs to change.
 
 ### 5. Install and Activate the DiviOps Plugin
 The [DiviOps plugin](https://github.com/oaris-dev/diviops) provides the REST API endpoints required for migration.
@@ -193,6 +201,9 @@ verification:
   require_images: false
   require_buttons: false
   primary_color_token: "gcid-primary-color"
+  # Expected default section background. The live site background is fetched
+  # from the Divi Customizer at start (design_system.primary_background); this
+  # value is only the verifier's fallback expectation if fetching is disabled.
   default_section_bg: "#f7f4ef"
 
 design_system:

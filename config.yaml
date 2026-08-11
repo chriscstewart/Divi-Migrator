@@ -7,12 +7,12 @@
 # framework has sane per-deployment defaults; only credentials stay local.
 
 wp:
-  url: "https://www.helenzee.com/2026"
+  url: "https://yoursite.com"
   ssl_verify: true
   timeout: 60
 
 diviops:
-  url: "https://www.helenzee.com/2026"
+  url: "https://yoursite.com"
   timeout: 90
 
 migration:
