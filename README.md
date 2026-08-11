@@ -8,6 +8,15 @@
 [![License](https://img.shields.io/github/license/chriscstewart/Divi-Migrator)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/chriscstewart/Divi-Migrator/test.yml)](https://github.com/chriscstewart/Divi-Migrator/actions)
 
+> ⚠️ **STATUS: EXPERIMENTAL / PRE-RELEASE.** This project is shared as-is for
+> developers and AI agents working on Divi migrations. It is **not** a
+> turnkey, certified product. Read [Known Limitations](#-known-limitations)
+> and [Disclaimer](#-disclaimer--no-warranty) before use.
+>
+> 🛑 **ALWAYS run against a staging copy first. Never on production.** The
+> tool rewrites and renames content; mistakes are your responsibility to
+> recover from (rollback helpers exist, but are not guaranteed).
+
 ---
 
 ## ✨ Features
@@ -85,9 +94,14 @@ Ensure the target site runs Divi 5 (not Divi 4).
 ### 5. Install and Activate the DiviOps Plugin
 The [DiviOps plugin](https://github.com/oaris-dev/diviops) provides the REST API endpoints required for migration.
 
-### 6. Connect Your AI Agent to Required MCP Tools
-- **DiviOps MCP** — required for all Divi 5 operations
-- [**WordPress MCP**](https://github.com/docdyhr/mcp-wordpress) — for additional WP operations: WordPress REST API endpoints used by default, but some agents may prefer this MCP. 
+### 6. Connect Your AI Agent (optional)
+
+This framework talks to WordPress **directly via the WP REST API** (using an
+Application Password) — no WordPress MCP server is required. The optional
+[DiviOps plugin](https://github.com/oaris-dev/diviops) supplies additional
+Divi 5 REST endpoints used for best-effort block enrichment. An AI agent using
+this tool only needs network access to those REST endpoints; it does not need
+to drive a separate MCP server.
 
 ### 7. Give the AI Agent Migration Instructions
 Example prompt:
@@ -178,29 +192,44 @@ design_system:
 
 ## 🔌 Extending for New Builders
 
+Converters subclass `BaseConverter` and register an instance in the module-level
+`registry`. The active converter is chosen automatically by `detect()`.
+
 ```python
 # my_converters/custom.py
-from divi_migrator.converters import BaseConverter, register_converter
+from divi_migrator.converters.base import BaseConverter, ExtractedAssets
+from divi_migrator.converters.base import registry
+
 
 class CustomBuilderConverter(BaseConverter):
     format_name = "custom_builder"
 
     def detect(self, content: str) -> bool:
-        return 'custom_builder_shortcode' in content
+        return "custom_builder_shortcode" in content
 
-    def convert(self, content: str, source_id: int, design_system=None) -> str:
-        # Transform to Divi 5 shortcodes
-        return divi_shortcodes
+    def convert(
+        self,
+        content: str,
+        source_id: int,
+        design_system: object = None,
+        wp_client: object = None,
+    ) -> str:
+        # Transform to Divi 5 block markup (see divi5_blocks helpers)
+        return divi5_markup
 
     def extract_assets(self, content: str) -> ExtractedAssets:
         return ExtractedAssets()
 
-# Register
-from divi_migrator.converters import register_converter
-register_converter("custom_builder", CustomBuilderConverter)
+
+# Register so discovery/migration can auto-select it
+registry.register("custom_builder", CustomBuilderConverter)
 ```
 
-Then use: `divi-migrate migrate --converter custom_builder`
+There is **no `--converter` CLI flag** — `divi-migrate discover`/`migrate`
+auto-detect the format per item and pick the matching registered converter.
+To use your custom converter, ensure the module is imported (so `registry.register`
+runs) before invoking the CLI, e.g. via an entry point or by importing it in your
+own script that calls the library.
 
 ---
 
@@ -220,7 +249,7 @@ divi_migrator/
 ├── converters/
 │   ├── base.py         # BaseConverter + Registry
 │   ├── avada.py        # Fusion Builder → Divi 5
-│   ├── elementor.py    # Elementor (stub — not implemented in v0.1.0)
+│   ├── elementor.py    # Elementor (stub — not implemented in this release)
 │   └── plain_html.py   # HTML → Divi 5 wrapper
 ├── models/
 │   ├── __init__.py     # MigrationMeta, CheckpointRecord, etc.
@@ -232,16 +261,17 @@ divi_migrator/
 ## 🧪 Testing
 
 ```bash
-# Unit tests
+# Unit tests (no external services required)
 pytest tests/unit/ -v
 
-# Integration (requires test WP site)
-pytest tests/integration/ --wp-url=https://test.site --wp-user=... --wp-pass=...
-
-# Lint + type check
+# Lint + type check (must match CI)
 ruff check .
-mypy divi_migrator/
+ruff format --check .
+mypy --strict divi_migrator
 ```
+
+> Integration tests against a live WordPress + DiviOps site are **not included**
+> in this release. CI runs the unit suite, ruff, and strict mypy only.
 
 ---
 
@@ -301,3 +331,32 @@ creation through WP REST fixed that. (See `core/client.py::create_content`.)
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE)
+
+---
+
+## 🛡️ Disclaimer / No Warranty
+
+This software is provided **"AS IS" and "AS AVAILABLE"**, without warranty of
+any kind, express or implied, including but not limited to the warranties of
+merchantability, fitness for a particular purpose, and non-infringement.
+
+**The authors and contributors take NO RESPONSIBILITY and assume NO LIABILITY**
+for any damage, data loss, broken layouts, SEO regression, or any other
+consequence arising from the use of this tool. This includes, without limitation:
+
+- Content that is **renamed, rewritten, unpublished, or left in a draft** state.
+- **Lost styling, backgrounds, or module fidelity** after migration (see
+  [Known Limitations](#-known-limitations)).
+- Failures due to hosting limits, plugin conflicts, rate limiting, or DiviOps
+  behaviour on your specific site.
+- Any outcome of running the tool on a site that is not a disposable staging copy.
+
+**You are solely responsible** for:
+
+1. **Backing up your site** (database + uploads) before running anything.
+2. **Testing on staging first**, verifying the result, and only then
+   considering production.
+3. Reviewing migrated content in the Divi Visual Builder before publishing.
+
+By using this software you acknowledge and accept these terms. If you do not
+agree, do not use the software.
