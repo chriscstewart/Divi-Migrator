@@ -125,10 +125,19 @@ class MigrationOrchestrator:
                 "draft_id": migrated_id, "verification": None, "meta": None,
             }
 
-        # Check if in-progress (resume)
+        # Check if in-progress (resume an interrupted run instead of
+        # creating a second draft). If a prior run got far enough to mint a
+        # draft id, we reuse that draft and re-apply meta/publish/rename
+        # idempotently; otherwise we proceed to create a fresh draft.
         record = self.audit.get_migration_status(post_type, item_id)
+        resume_draft_id: int | None = None
         if record and record.status == "in_progress":
-            logger.info(f"  🔄 Resuming migration for #{item_id}")
+            if record.migrated_id:
+                resume_draft_id = int(record.migrated_id)
+                logger.info(f"  🔄 Resuming interrupted migration for #{item_id} (reusing draft {resume_draft_id})")  # noqa: E501
+            else:
+                logger.info(f"  🔄 Resuming migration for #{item_id} (no draft yet, will create)")  # noqa: E501
+
 
         # Start tracking
         self.audit.start_migration(post_type, item_id, title, slug, content_hash(content))
@@ -162,42 +171,50 @@ class MigrationOrchestrator:
                 "draft_id": None, "verification": None, "meta": None,
             }
 
-        # Idempotency: trash any leftover draft from a prior (failed) run for
-        # this exact source so retries don't accumulate orphan drafts. The
-        # search query can be heavy on cheap shared hosting and may 500; if it
-        # fails we simply skip pre-cleanup rather than aborting the migration.
-        try:
-            prior = self.wp.get_items(
-                post_type, status="draft", per_page=5,
-                search=title,
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Pre-creation orphan check failed (skipping): %s", e)
-            prior = None
-        if isinstance(prior, list):
-            for d in prior:
-                if not isinstance(d, dict):
-                    continue
-                did = int(d.get("id", 0))
-                dmeta = d.get("meta", {})
-                if did and dmeta.get("_divi_migrator", {}).get("source_id") == item["id"]:
-                    self.wp.delete(f"{post_type}s/{did}", force=False)
-                    logger.info("  🧹 Trashed prior draft %d for source #%d", did, item["id"])
+        # Idempotency: when NOT resuming an existing draft, trash any leftover
+        # draft from a prior (failed) run for this exact source so retries
+        # don't accumulate orphan drafts. Skipped on resume (the existing
+        # draft IS the one we want to keep). The search query can be heavy on
+        # cheap shared hosting and may 500; if it fails we simply skip
+        # pre-cleanup rather than aborting the migration.
+        if resume_draft_id is None:
+            try:
+                prior = self.wp.get_items(
+                    post_type, status="draft", per_page=5,
+                    search=title,
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Pre-creation orphan check failed (skipping): %s", e)
+                prior = None
+            if isinstance(prior, list):
+                for d in prior:
+                    if not isinstance(d, dict):
+                        continue
+                    did = int(d.get("id", 0))
+                    dmeta = d.get("meta", {})
+                    if did and dmeta.get("_divi_migrator", {}).get("source_id") == item["id"]:
+                        self.wp.delete(f"{post_type}s/{did}", force=False)
+                        logger.info("  🧹 Trashed prior draft %d for source #%d", did, item["id"])
 
-        # Create NEW draft via DiviOps with DRAFT status (transaction safety)
-        draft = self.diviops.create_content(
-            title, divi_content, status="draft", post_type=post_type
-        )
-
-        if isinstance(draft, dict) and draft.get("ok") and draft.get("data", {}).get("page_id"):
-            draft_id = draft["data"]["page_id"]
-        elif isinstance(draft, dict) and draft.get("id"):
-            draft_id = draft["id"]
+        # Create NEW draft via DiviOps with DRAFT status (transaction safety),
+        # OR reuse the draft minted by an interrupted prior run.
+        if resume_draft_id is not None:
+            draft_id = resume_draft_id
+            logger.info(f"  🔁 Reusing existing draft: ID {draft_id}")
         else:
-            self.audit.fail_migration(post_type, item_id, "Failed to create draft")
-            raise ValueError(f"Failed to create {post_type} #{item_id}")  # noqa: TRY003
+            draft = self.diviops.create_content(
+                title, divi_content, status="draft", post_type=post_type
+            )
 
-        logger.info(f"  ✅ Created new draft: ID {draft_id}")
+            if isinstance(draft, dict) and draft.get("ok") and draft.get("data", {}).get("page_id"):
+                draft_id = draft["data"]["page_id"]
+            elif isinstance(draft, dict) and draft.get("id"):
+                draft_id = draft["id"]
+            else:
+                self.audit.fail_migration(post_type, item_id, "Failed to create draft")
+                raise ValueError(f"Failed to create {post_type} #{item_id}")  # noqa: TRY003
+
+            logger.info(f"  ✅ Created new draft: ID {draft_id}")
 
         # Verify layout
         verification = verify_page(self.diviops, self.config, draft_id)
