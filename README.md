@@ -48,29 +48,44 @@ export WP_URL="https://yoursite.com"
 export WP_USER="migration-bot"
 export WP_APP_PASSWORD="***"
 
-# Discover what can be migrated
+# 1. Record current originals (pages/posts) so they can be tracked/rolled back.
+#    Safe to re-run; migrate also auto-inits this on first use.
+divi-migrate audit-init
+
+# 2. Discover what can be migrated (lists only audit-recorded originals)
 divi-migrate discover --type page
 divi-migrate discover --type post
 
-# Dry run
+# 3. Dry run FIRST (migrate is dry-run by default — nothing is written)
 divi-migrate migrate --type post --limit 5 --dry-run
+divi-migrate migrate --type page --limit 50 --dry-run
 
-# Real migration (resumable!)
-divi-migrate migrate --type page --limit 50
-divi-migrate migrate --type post --limit 100
+# 4. Real migration — you MUST pass --execute to actually write
+divi-migrate migrate --type page --limit 50 --execute
+divi-migrate migrate --type post --limit 100 --execute
 
-# Cleanup duplicates
+# 5. Cleanup duplicates (keeps newest draft per source)
 divi-migrate cleanup --type post
 
 # Inspect target site's design system
 divi-migrate inspect
 ```
 
+> ⚠️ `migrate` is **dry-run by default**. It only writes to the site when you
+> pass `--execute`. Always do a `--dry-run` on staging and review before
+> executing.
+
 ---
 
 ## 📋 Migration Process
 
 Before running the migration, follow these steps to prepare your target site:
+
+> 📌 **Command order matters.** Before `discover`/`migrate` can find anything,
+> the originals must be recorded via `divi-migrate audit-init` (or the first
+> `migrate` auto-inits it). See [Quick Start](#-quick-start) for the exact
+> command sequence. Everything below prepares the *site*; the CLI commands do
+> the migration.
 
 ### 1. Create a Staging Website First
 Never run migrations directly on production. Create a complete staging copy of your site.
@@ -148,7 +163,7 @@ WP_APP_PASSWORD=***
 
 # Optional
 DIVIOPS_URL=https://yoursite.com          # if different from WP_URL
-RATE_LIMIT=2.0                            # seconds between requests
+RATE_LIMIT=0.33                            # requests/sec for WP+DiviOps (0.33 ≈ 3s apart)
 CHECKPOINT_DIR=./checkpoints
 SSL_VERIFY=true
 ```
@@ -167,10 +182,10 @@ diviops:
   url: "https://yoursite.com"   # same as WP_URL if on same host
 
 migration:
-  rate_limit: 2.0
+  rate_limit: 0.33          # requests/sec for WP+DiviOps (0.33 ≈ 3s apart; raise cautiously)
   batch_size: 50
   checkpoint_dir: "./checkpoints"
-  max_retries: 3
+  max_retries: 5            # retry attempts on transient 5xx/429
   timeout: 30
 
 verification:
