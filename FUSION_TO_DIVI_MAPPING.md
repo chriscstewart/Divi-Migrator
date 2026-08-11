@@ -1,81 +1,74 @@
 # Fusion Shortcode → Divi 5 Module Mapping
 
-## Complete Inventory of Fusion Shortcodes Found on HelenZee.com/2026
+> **Status: verified against `divi_migrator/converters/avada.py` and
+> `divi5_blocks.py` as of v0.1.2.** This is the authoritative capability map.
 
-| Fusion Shortcode | Divi 5 Module | Status | Notes |
+## How conversion works on this host
+
+Avada (Fusion Builder) shortcodes are converted to **Divi 5 block markup**
+(`<!-- wp:divi/... -->`). Two emission strategies are used:
+
+- **Native Divi 5 module** — emitted as the real `divi/<module>` block. Renders
+  directly from `post_content` in Divi 5.
+- **Semantic HTML inside a `divi/text` block** — used for modules whose native
+  Divi 5 equivalent **does not render from raw `post_content` markup on this
+  shared host** (verified 2026-08). These are emitted as clean, styled HTML
+  inside a Divi text block so they display reliably. They are fully readable and
+  editable in the Divi Visual Builder, just not as the dedicated module type.
+
+## Structure & content
+
+| Fusion Shortcode | Divi 5 Target | Status | Notes |
 |------------------|---------------|--------|-------|
-| **Structure** |
-| `fusion_builder_container` | `divi/section` | ✅ Done | Maps to section with background |
-| `fusion_builder_row` | `divi/row` | ✅ Done | Flex/standard row |
-| `fusion_builder_column` | `divi/column` | ✅ Done | Column layouts |
-| `fusion_builder_row_inner` | `divi/row` (inner) | ✅ Done | Nested rows |
-| `fusion_builder_column_inner` | `divi/column` (inner) | ✅ Done | Nested columns |
-| **Content** |
-| `fusion_text` | `divi/text` | ✅ Done | Rich text |
-| `fusion_title` | `divi/heading` | ✅ Done | H1-H6 headings |
-| `fusion_separator` | `divi/divider` | ✅ Done | Horizontal rules |
-| `fusion_button` | `divi/button` | ✅ Done | Buttons with links |
-| **Media** |
-| `fusion_imageframe` | `divi/image` | ✅ Done | Single images |
-| `fusion_image` | `divi/image` | ⚠️ Partial | Similar to imageframe |
-| `fusion_images` | `divi/gallery` | ⚠️ Partial | Multiple images |
-| `fusion_gallery` | `divi/gallery` | ⚠️ Placeholder | Gallery grid |
-| `fusion_gallery_image` | `divi/image` | ⚠️ Child | Gallery items |
-| `fusion_youtube` | `divi/video` | ✅ Done | YouTube videos |
-| `fusion_vimeo` | `divi/video` | ✅ Done | Vimeo videos |
-| `fusion_video` | `divi/video` | ✅ Done | Self-hosted video |
-| `fusion_countdown` | `divi/countdown-timer` | ⚠️ New | Countdown timer |
-| **Social** |
-| `fusion_social_links` | `divi/social-media-follow` | ✅ Done | Social icons |
-| `fusion_fontawesome` | `divi/icon` | ⚠️ Partial | Font Awesome icons |
-| **Testimonials/Team** |
-| `fusion_testimonial` | `divi/testimonial` | ✅ Done | Single testimonial |
-| `fusion_testimonials` | `divi/testimonial` (multiple) | ✅ Done | Wrapper → multiple testimonials |
-| `fusion_person` | `divi/team-member` | ⚠️ New | Person/team member |
-| **Advanced Layout** |
-| `fusion_content_box` | `divi/blurb` | ⚠️ Partial | Content box = blurb |
-| `fusion_content_boxes` | `divi/blurb` (multiple) | ⚠️ New | Wrapper → multiple blurbs |
-| `fusion_tabs` / `fusion_tab` | `divi/tabs` / `divi/tab` | ⚠️ New | Tabbed content |
-| `fusion_faq` | `divi/accordion` | ⚠️ New | FAQ = accordion |
-| `fusion_checklist` | `divi/icon-list` | ⚠️ New | Checklist with icons |
-| `fusion_events` | `divi/blog` / custom | ❌ Complex | Events calendar |
-| `fusion_blog` | `divi/blog` | ⚠️ New | Blog feed |
-| `fusion_code` | `divi/code` | ⚠️ New | Code block |
-| `fusion_global` | Library/Global | ❌ N/A | Global elements |
-| `fusion_woo_shortcodes` | WooCommerce modules | ❌ E-commerce | WC integration |
-| `fusion_li_item` | List item | ⚠️ Child | List items |
-| `fusion_map` | `divi/map` | ✅ Done | Google Maps |
+| `fusion_builder_container` | `divi/section` | ✅ Native | Section with background |
+| `fusion_builder_row` | `divi/row` | ✅ Native | Flex/standard row |
+| `fusion_builder_column` | `divi/column` | ✅ Native | Column layouts |
+| `fusion_builder_row_inner` | `divi/row` (inner) | ✅ Native | Nested rows |
+| `fusion_builder_column_inner` | `divi/column` (inner) | ✅ Native | Nested columns |
+| `fusion_text` | `divi/text` | ✅ Native | Rich text |
+| `fusion_title` | `divi/heading` | ✅ Native | H1–H6 headings |
+| `fusion_separator` | `divi/divider` | ✅ Native | Horizontal rule |
+| `fusion_button` | `divi/button` | ✅ Native | Button with link |
+| `fusion_imageframe` | `divi/image` | ✅ Native | Single image |
+| `fusion_image` | `divi/image` | ✅ Native | Single image (also imageframe) |
+| `fusion_images` | `divi/gallery` | ✅ Native | Multiple images |
+| `fusion_gallery` | `divi/gallery` | ✅ Native | Gallery grid |
+| `fusion_gallery_image` | `divi/image` | ✅ Native | Gallery child item |
+| `fusion_youtube` | `divi/video` | ✅ Native | YouTube embed |
+| `fusion_vimeo` | `divi/video` | ✅ Native | Vimeo embed |
+| `fusion_video` | `divi/video` | ✅ Native | Self-hosted video |
+| `fusion_social_links` | `divi/social-media-follow` | ✅ Native | Social icons |
+| `fusion_fontawesome` | HTML icon in `divi/text` | ✅ Converted | Emitted as styled HTML (native `divi/icon` does not render headless here) |
+| `fusion_testimonial` | `divi/testimonial` | ✅ Native | Single testimonial |
+| `fusion_testimonials` | `divi/testimonial` (multiple) | ✅ Native | Wrapper → multiple testimonials |
+| `fusion_map` | `divi/map` | ✅ Native | Google Map |
+| `fusion_person` | HTML profile card in `divi/text` | ✅ Converted | Name/title/bio/socials as semantic HTML (native `divi/team-member` does not render headless here) |
+| `fusion_content_box` | `divi/blurb` | ✅ Native | Content box → blurb |
+| `fusion_content_boxes` | `divi/blurb` (multiple) | ✅ Native | Wrapper → multiple blurbs |
+| `fusion_tabs` / `fusion_tab` | HTML `<details>` accordion in `divi/text` | ✅ Converted | Native `divi/tabs` does not render headless here; emitted as stacked panels |
+| `fusion_faq` / `fusion_toggles` | HTML `<details>` accordion in `divi/text` | ✅ Converted | Native `divi/accordion` does not render headless here |
+| `fusion_checklist` | `divi/icon-list` | ✅ Native | Checklist with icons |
+| `fusion_countdown` | `divi/countdown-timer` | ✅ Native | Countdown timer |
+| `fusion_blog` | `divi/blog` | ✅ Native | Blog feed |
+| `fusion_code` | HTML `<pre>`/`code` in `divi/text` | ✅ Converted | Code block content preserved as styled HTML |
+| `fusion_raw` | `divi/text` (raw HTML) | ✅ Converted | Raw HTML passed through |
+| `fusion_li_item` | List item (within text/checklist) | ✅ Converted | Child of list containers |
 
-## Priority Recommendations
+## Not converted (excluded by design)
 
-### **High Priority (Already Working)**
-- Video (YouTube/Vimeo) → `divi/video` ✅
-- Testimonials → `divi/testimonial` ✅
-- Social Links → `divi/social-media-follow` ✅
-- Images → `divi/image` ✅
-- Map → `divi/map` ✅
-- Text/Title/Button/Separator → Basic modules ✅
+| Fusion Shortcode | Reason |
+|------------------|-------|
+| `fusion_events` | Emitted best-effort as HTML; full Events Calendar mapping is out of scope (no direct Divi equivalent). |
+| `fusion_woo_shortcodes` | WooCommerce modules excluded — different plugin/ecosystem. |
+| `fusion_global` | Global/library elements are not page content; skipped. |
 
-### **Medium Priority (Partial/Need Implementation)**
-1. **Person/Team Member** → `divi/team-member` (Dedicated module!)
-2. **Content Box/Boxes** → `divi/blurb` (Very similar pattern)
-3. **Tabs** → `divi/tabs` + `divi/tab` (Direct mapping)
-4. **FAQ** → `divi/accordion` (Perfect match)
-5. **Countdown** → `divi/countdown-timer` (Direct mapping)
-6. **Gallery** → `divi/gallery` (Direct mapping)
-7. **Blog** → `divi/blog` (Direct mapping)
+## Notes for maintainers
 
-### **Low Priority / Complex**
-- Events → Custom/Calendar (No direct equivalent)
-- WooCommerce → Skip (Different plugin)
-- Global → Library items (Not page content)
-- Checklist → `divi/icon-list` (Doable)
-
-## Implementation Approach
-
-For each new mapping, follow the proven pattern:
-1. Add pattern to AvadaConverter
-2. Add `_convert_{shortcode}_to_block` method
-3. Use `divi5_blocks` generator function
-4. Test with module/update endpoint if needed
-5. Add to cleanup patterns in `_convert_column_to_blocks`
+- Every `_convert_*` method in `avada.py` maps to a generator in `divi5_blocks.py`.
+- When adding a new mapping: add the shortcode pattern + `_convert_<x>_to_block`
+  method in `avada.py`, add/use the generator in `divi5_blocks.py`, and update
+  this table.
+- "Does not render headless" refers to the Divi 5 headless/REST render path on
+  the target shared host; the Visual Builder may still render native modules.
+  The HTML-fallback strategy guarantees the content is visible after migration
+  regardless.

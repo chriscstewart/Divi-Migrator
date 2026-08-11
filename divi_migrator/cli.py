@@ -190,10 +190,10 @@ def setup(
 
     console.print(f"[green]✓ Configuration saved to {cfg_path}[/green]")
     console.print("\nNext steps:")
-    console.print("  1. Run [cyan]divi-migrator audit-init[/cyan] to record original content")
-    console.print("  2. Run [cyan]divi-migrator discover[/cyan] to see migratable items")
-    console.print("  3. Run [cyan]divi-migrator migrate --dry-run[/cyan] to test")
-    console.print("  4. Run [cyan]divi-migrator migrate --execute[/cyan] to migrate")
+    console.print("  1. Run [cyan]divi-migrate audit-init[/cyan] to record original content")
+    console.print("  2. Run [cyan]divi-migrate discover[/cyan] to see migratable items")
+    console.print("  3. Run [cyan]divi-migrate migrate --dry-run[/cyan] to test")
+    console.print("  4. Run [cyan]divi-migrate migrate --execute[/cyan] to migrate")
 
 
 @app.command()

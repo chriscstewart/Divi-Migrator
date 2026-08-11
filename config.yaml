@@ -33,15 +33,12 @@ verification:
   require_images: false
   require_buttons: false
   primary_color_token: "gcid-primary-color"
-  default_section_bg: "#f7f4ef"
 
 design_system:
   fetch_on_start: true
   cache_ttl: 3600
   fallback_to_defaults: true
-  primary_color_override: null
-  section_bg_override: null
-
+  background_color_token: "primary_background_color"
 audit:
   backup_dir: "./audit_backups"
   wp_option_key: "divi_migrator_audit"

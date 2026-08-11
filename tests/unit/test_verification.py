@@ -21,7 +21,6 @@ class MockConfig:
                 "min_images": 0,
                 "min_buttons": 0,
                 "primary_color_token": "gcid-primary-color",
-                "default_section_bg": "#f7f4ef",
             },
         )()
         self.migration = type(

@@ -114,6 +114,15 @@ they rely on the audit trail and the `_divi_migrator` provenance meta key.
   If you use a different username than `migration-bot`, just set `WP_USER` to yours —
   nothing else needs to change.
 
+> 📌 **Author & identification.** Migrated content is **authored by the
+> migration user** (the one that authenticated), not the original author —
+> all other original metadata (date, slug, categories, tags, featured image)
+> is preserved. This is by design: once you're happy with the migration you
+> can **bulk-edit the author**, or **bulk-delete all migrated items** with
+> `divi-migrate cleanup --author <migration-user-id>`. Pages and posts are both
+> identifiable this way (WordPress authors both). The original author is kept
+> only in the audit trail so `rollback` can restore it.
+
 ### 5. Install and Activate the DiviOps Plugin
 The [DiviOps plugin](https://github.com/oaris-dev/diviops) provides the REST API endpoints required for migration.
 
@@ -201,18 +210,13 @@ verification:
   require_images: false
   require_buttons: false
   primary_color_token: "gcid-primary-color"
-  # Expected default section background. The live site background is fetched
-  # from the Divi Customizer at start (design_system.primary_background); this
-  # value is only the verifier's fallback expectation if fetching is disabled.
-  default_section_bg: "#f7f4ef"
+  # Expected primary color token in the Divi Customizer (fetched live at start).
 
 design_system:
   fetch_on_start: true
   cache_ttl: 3600
   fallback_to_defaults: true
-  primary_color_override: null
-  section_bg_override: null
-```
+  background_color_token: "primary_background_color"
 
 ---
 

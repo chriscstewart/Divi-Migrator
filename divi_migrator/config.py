@@ -78,7 +78,6 @@ class VerificationSettings(BaseSettings):
     require_images: bool = Field(False)
     require_buttons: bool = Field(False)
     primary_color_token: str = Field("gcid-primary-color")
-    default_section_bg: str = Field("#f7f4ef")
 
 
 class DesignSystemSettings(BaseSettings):
@@ -89,8 +88,6 @@ class DesignSystemSettings(BaseSettings):
     fetch_on_start: bool = Field(True)
     cache_ttl: int = Field(3600)
     fallback_to_defaults: bool = Field(True)
-    primary_color_override: str | None = None
-    section_bg_override: str | None = None
     background_color_token: str = Field("primary_background_color")
 
 

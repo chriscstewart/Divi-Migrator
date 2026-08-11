@@ -289,6 +289,15 @@ class MigrationOrchestrator:
 
         # Publish the draft now that everything succeeded, preserving the
         # original publication date, categories and tags.
+        #
+        # IMPORTANT: we deliberately do NOT set `author` here. The draft was
+        # created by the authenticated migration user, so it is already
+        # authored by that user. We intentionally keep it that way — the
+        # original author is recorded in the audit (above) purely so rollback
+        # can restore it on the ORIGINAL. Keeping migrated content under the
+        # migration user lets the site owner visually identify, bulk-edit, or
+        # bulk-delete (via `divi-migrate cleanup --author <id>`) all migrated
+        # items once they are happy with the result.
         publish_payload: dict[str, Any] = {"status": "publish"}
         if original_meta.get("date"):
             publish_payload["date"] = original_meta["date"]
