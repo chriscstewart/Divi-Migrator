@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "divi-migrator"
-version = "0.1.0"
+version = "0.1.2"
 description = "WordPress Avada/Elementor/Plain HTML to Divi 5 migration framework"
 readme = "README.md"
 license = {text = "MIT"}
