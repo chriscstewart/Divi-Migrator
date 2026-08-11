@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OriginalContent:
     """Immutable record of original content."""
+
     id: int
     post_type: str
     title: str
@@ -36,6 +37,7 @@ class OriginalContent:
 @dataclass
 class MigrationRecord:
     """Migration tracking record."""
+
     original_id: int
     migrated_id: int | None = None
     status: str = "pending"
@@ -59,6 +61,7 @@ class MigrationRecord:
 @dataclass
 class AuditData:
     """Complete audit data structure."""
+
     version: int = 1
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -84,7 +87,9 @@ class AuditManager:
     def __init__(self, wp_client: WPClient, config: Config):
         self.wp = wp_client
         self.config = config
-        self.backup_dir = Path(config.audit.backup_dir) if hasattr(config, "audit") else Path("./audit_backups")  # noqa: E501
+        self.backup_dir = (
+            Path(config.audit.backup_dir) if hasattr(config, "audit") else Path("./audit_backups")
+        )  # noqa: E501
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self._audit: AuditData | None = None
         self._loaded = False
@@ -93,7 +98,9 @@ class AuditManager:
         """Find the audit post by slug or title."""
         try:
             # First try to get by slug
-            pages = self.wp.get_items("page", status="any", per_page=10, search=self.AUDIT_POST_SLUG)  # noqa: E501
+            pages = self.wp.get_items(
+                "page", status="any", per_page=10, search=self.AUDIT_POST_SLUG
+            )  # noqa: E501
             for page in pages:
                 if page.get("slug") == self.AUDIT_POST_SLUG:
                     return int(page["id"])
@@ -104,8 +111,10 @@ class AuditManager:
         try:
             pages = self.wp.get_items("page", status="private", per_page=100)
             for page in pages:
-                if (page.get("author") == 292 and  # noqa: PLR2004
-                    page.get("title", {}).get("rendered") == self.AUDIT_POST_TITLE):
+                if (
+                    page.get("author") == 292  # noqa: PLR2004
+                    and page.get("title", {}).get("rendered") == self.AUDIT_POST_TITLE
+                ):
                     return int(page["id"])
         except Exception as e:
             logger.warning(f"Failed to find audit post by title: {e}")
@@ -123,7 +132,7 @@ class AuditManager:
                     "slug": self.AUDIT_POST_SLUG,
                     "status": "private",
                     "content": "{}",
-                }
+                },
             )
             if isinstance(result, dict) and result.get("id"):
                 logger.info(f"Created audit storage post: {result['id']}")
@@ -150,12 +159,16 @@ class AuditManager:
             page_num = 1
             per_page = 100
             while True:
-                pages = self.wp.get_items("page", status="private", per_page=per_page, page=page_num)  # noqa: E501
+                pages = self.wp.get_items(
+                    "page", status="private", per_page=per_page, page=page_num
+                )  # noqa: E501
                 if not pages:
                     break
                 for p in pages:
-                    if (p.get("author") == 292 and  # noqa: PLR2004
-                        p.get("title", {}).get("rendered") == self.AUDIT_POST_TITLE):
+                    if (
+                        p.get("author") == 292  # noqa: PLR2004
+                        and p.get("title", {}).get("rendered") == self.AUDIT_POST_TITLE
+                    ):
                         audit_posts.append(p)
                 if len(pages) < per_page:
                     break
@@ -363,7 +376,9 @@ class AuditManager:
             return audit.original_pages.get(item_id)
         return audit.original_posts.get(item_id)
 
-    def start_migration(self, post_type: str, original_id: int, title: str, slug: str, content_hash: str) -> MigrationRecord:  # noqa: E501
+    def start_migration(
+        self, post_type: str, original_id: int, title: str, slug: str, content_hash: str
+    ) -> MigrationRecord:  # noqa: E501
         """Start tracking a migration."""
         audit = self.load()
         key = f"{post_type}:{original_id}"
@@ -396,9 +411,7 @@ class AuditManager:
                 audit.migrated_posts += 1
             self.save()
 
-    def mark_renamed(
-        self, post_type: str, original_id: int, old_title: str, old_slug: str
-    ) -> None:
+    def mark_renamed(self, post_type: str, original_id: int, old_title: str, old_slug: str) -> None:
         """Record that the original was renamed to '{slug}-old' after migration.
 
         The audit always retains the immutable original title/slug, so rollback
@@ -498,11 +511,14 @@ class AuditManager:
 
                     original = self.get_original(post_type, record.original_id)
                     if original:
-                        wp_client.put(f"{post_type}s/{record.original_id}", json_data={
-                            "title": original.title,
-                            "slug": original.slug,
-                            "status": original.status,
-                        })
+                        wp_client.put(
+                            f"{post_type}s/{record.original_id}",
+                            json_data={
+                                "title": original.title,
+                                "slug": original.slug,
+                                "status": original.status,
+                            },
+                        )
                         results["restored"] += 1
 
                     record.status = "rolled_back"
@@ -528,8 +544,14 @@ class AuditManager:
             "migrated_posts": audit.migrated_posts,
             "failed_pages": audit.failed_pages,
             "failed_posts": audit.failed_posts,
-            "pending_pages": sum(1 for k, r in audit.migration_map.items()
-                               if k.startswith("page:") and r.status == "in_progress"),
-            "pending_posts": sum(1 for k, r in audit.migration_map.items()
-                                if k.startswith("post:") and r.status == "in_progress"),
+            "pending_pages": sum(
+                1
+                for k, r in audit.migration_map.items()
+                if k.startswith("page:") and r.status == "in_progress"
+            ),
+            "pending_posts": sum(
+                1
+                for k, r in audit.migration_map.items()
+                if k.startswith("post:") and r.status == "in_progress"
+            ),
         }

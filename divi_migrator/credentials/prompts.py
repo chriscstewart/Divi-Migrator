@@ -42,11 +42,13 @@ def prompt_for_credentials() -> CompleteConfig:
     )
 
     console.print()
-    console.print(Panel.fit(
-        "[bold cyan]Divi Migrator - Credential Setup[/bold cyan]\n"
-        "Let's configure your WordPress connection for the migration.",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel.fit(
+            "[bold cyan]Divi Migrator - Credential Setup[/bold cyan]\n"
+            "Let's configure your WordPress connection for the migration.",
+            border_style="cyan",
+        )
+    )
 
     # Check if user knows how to create app passwords
     console.print()
@@ -85,23 +87,12 @@ def prompt_for_credentials() -> CompleteConfig:
     console.print("Usually the same as WordPress. Press Enter to use WP settings.")
     console.print()
 
-    diviops_url = Prompt.ask(
-        "DiviOps URL",
-        default=wp_url,
-        show_default=True
-    )
+    diviops_url = Prompt.ask("DiviOps URL", default=wp_url, show_default=True)
 
-    diviops_user = Prompt.ask(
-        "DiviOps Username",
-        default=wp_user,
-        show_default=True
-    )
+    diviops_user = Prompt.ask("DiviOps Username", default=wp_user, show_default=True)
 
     diviops_password = Prompt.ask(
-        "DiviOps Application Password",
-        default=app_password,
-        show_default=False,
-        password=True
+        "DiviOps Application Password", default=app_password, show_default=False, password=True
     )
 
     # Migration settings
@@ -109,21 +100,11 @@ def prompt_for_credentials() -> CompleteConfig:
     console.print("[bold]Migration Settings[/bold]")
     console.print()
 
-    post_type = Prompt.ask(
-        "Post type to migrate",
-        choices=["page", "post"],
-        default="page"
-    )
+    post_type = Prompt.ask("Post type to migrate", choices=["page", "post"], default="page")
 
-    rate_limit = float(Prompt.ask(
-        "Rate limit (seconds between requests)",
-        default="0.5"
-    ))
+    rate_limit = float(Prompt.ask("Rate limit (seconds between requests)", default="0.5"))
 
-    batch_size = int(Prompt.ask(
-        "Batch size (items per API page)",
-        default="50"
-    ))
+    batch_size = int(Prompt.ask("Batch size (items per API page)", default="50"))
 
     # Create config objects
     wp_config = WPConfig(
@@ -162,33 +143,33 @@ def prompt_for_credentials() -> CompleteConfig:
 def _show_app_password_instructions() -> None:
     """Show step-by-step instructions for creating a WordPress Application Password."""
     console.print()
-    console.print(Panel(
-        "[bold]How to Create a WordPress Application Password[/bold]\n\n"
-        "1. Log into your WordPress admin dashboard\n"
-        "2. Go to [cyan]Users \u2192 Profile[/cyan] (or click your avatar \u2192 Edit Profile)\n"
-        "3. Scroll down to [cyan]Application Passwords[/cyan] section\n"
-        '4. Enter a name for the app (e.g., "Divi Migrator")\n'
-        "5. Click [cyan]Add New Application Password[/cyan]\n"
-        "6. [bold red]COPY THE PASSWORD IMMEDIATELY[/bold red] - it won't be shown again!\n"
-        "   Format: [cyan]xxxx xxxx xxxx xxxx[/cyan] (24 characters with spaces)\n"
-        "7. Save the password in a secure place\n\n"
-        "[yellow]Note:[/yellow] You need [cyan]Administrator[/cyan] role for the migration.\n"
-        "If you don't see 'Application Passwords', ask your host to enable it\n"
-        "or update WordPress to 5.6+.",
-        title="Setup Instructions",
-        border_style="yellow",
-        padding=(1, 2)
-    ))
+    console.print(
+        Panel(
+            "[bold]How to Create a WordPress Application Password[/bold]\n\n"
+            "1. Log into your WordPress admin dashboard\n"
+            "2. Go to [cyan]Users → Profile[/cyan] "  # noqa: E501
+            "(or click your avatar → Edit Profile)\n"
+            "3. Scroll down to [cyan]Application Passwords[/cyan] section\n"
+            '4. Enter a name for the app (e.g., "Divi Migrator")\n'
+            "5. Click [cyan]Add New Application Password[/cyan]\n"
+            "6. [bold red]COPY THE PASSWORD IMMEDIATELY[/bold red] - it won't be shown again!\n"
+            "   Format: [cyan]xxxx xxxx xxxx xxxx[/cyan] (24 characters with spaces)\n"
+            "7. Save the password in a secure place\n\n"
+            "[yellow]Note:[/yellow] You need [cyan]Administrator[/cyan] role for the migration.\n"
+            "If you don't see 'Application Passwords', ask your host to enable it\n"
+            "or update WordPress to 5.6+.",
+            title="Setup Instructions",
+            border_style="yellow",
+            padding=(1, 2),
+        )
+    )
     console.print()
 
 
 def _prompt_wp_url() -> str:
     """Prompt for and validate WordPress URL."""
     while True:
-        url = Prompt.ask(
-            "[bold]WordPress Site URL[/bold]",
-            default="https://example.com"
-        )
+        url = Prompt.ask("[bold]WordPress Site URL[/bold]", default="https://example.com")
 
         # Normalize
         parsed = urlparse(url)
@@ -217,10 +198,7 @@ def _prompt_wp_url() -> str:
 def _prompt_username() -> str:
     """Prompt for WordPress username."""
     while True:
-        user = Prompt.ask(
-            "[bold]WordPress Username[/bold]",
-            default="admin"
-        ).strip()
+        user = Prompt.ask("[bold]WordPress Username[/bold]", default="admin").strip()
 
         if user:
             return user
@@ -238,10 +216,7 @@ def _prompt_app_password() -> str:
     console.print()
 
     while True:
-        password = Prompt.ask(
-            "Application Password",
-            password=True
-        ).strip()
+        password = Prompt.ask("Application Password", password=True).strip()
 
         if not password:
             console.print("[red]Error:[/red] Password cannot be empty")
@@ -253,8 +228,7 @@ def _prompt_app_password() -> str:
 
         if len(clean) < MIN_PASSWORD_LENGTH:
             console.print(
-                "[red]Error:[/red] Application password seems too short "
-                "(expected ~24 chars)"
+                "[red]Error:[/red] Application password seems too short (expected ~24 chars)"
             )
             if not Confirm.ask("Continue anyway?", default=False):
                 console.print()

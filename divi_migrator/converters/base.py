@@ -47,10 +47,10 @@ class BaseConverter(ABC):
             '<!-- wp:divi/row {"module":{"decoration":{"layout":{"desktop":{"value":{"display":"flex","flexWrap":"nowrap","alignItems":"center"}}},"phone":{"value":{"flexWrap":"wrap"}},"phoneWide":{"value":{"flexWrap":"wrap"}}}},"builderVersion":"5.9.0"} -->'  # noqa: E501
             '<!-- wp:divi/column {"options":{"columnLayout":"4_4"},"module":{"advanced":{"type":{"desktop":{"value":"4_4"}}},"decoration":{"sizing":{"desktop":{"value":{"flexType":"24_24"}},"phone":{"value":{"flexType":"24_24"}},"phoneWide":{"value":{"flexType":"24_24"}}}},"builderVersion":"5.9.0"} -->'  # noqa: E501
             f'<!-- wp:divi/text {{"content":{{"innerContent":{{"desktop":{{"value":"{content}"}}}},"module":{{"decoration":{{"animation":{{"desktop":{{"value":{{"style":"fade","delay":"0ms"}}}}}}}},"builderVersion":"5.9.0"}} /-->'  # noqa: E501
-            '<!-- /wp:divi/column -->'
-            '<!-- /wp:divi/row -->'
-            '<!-- /wp:divi/section -->'
-            '<!-- /wp:divi/placeholder -->'
+            "<!-- /wp:divi/column -->"
+            "<!-- /wp:divi/row -->"
+            "<!-- /wp:divi/section -->"
+            "<!-- /wp:divi/placeholder -->"
         )
 
 

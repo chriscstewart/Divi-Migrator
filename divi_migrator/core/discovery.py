@@ -15,21 +15,45 @@ def detect_format(content: str) -> SourceFormat:
     """Detect source format from content."""
     content_lower = content.lower()
 
-    if any(marker in content_lower for marker in [
-        "[fusion_builder_container", "[fusion_builder_row", "[fusion_builder_column",
-        "[fusion_text", "[fusion_button", "[fusion_imageframe", "[fusion_title", "[fusion_separator",  # noqa: E501
-    ]):
+    if any(
+        marker in content_lower
+        for marker in [
+            "[fusion_builder_container",
+            "[fusion_builder_row",
+            "[fusion_builder_column",
+            "[fusion_text",
+            "[fusion_button",
+            "[fusion_imageframe",
+            "[fusion_title",
+            "[fusion_separator",  # noqa: E501
+        ]
+    ):
         return SourceFormat.AVADA
 
-    if any(marker in content_lower for marker in [
-        "elementor-widget", "elementor-section", "elementor-column", "elementor-row",
-        "data-elementor-type", 'class="elementor',
-    ]):
+    if any(
+        marker in content_lower
+        for marker in [
+            "elementor-widget",
+            "elementor-section",
+            "elementor-column",
+            "elementor-row",
+            "data-elementor-type",
+            'class="elementor',
+        ]
+    ):
         return SourceFormat.ELEMENTOR
 
-    if any(marker in content_lower for marker in [
-        "vc_row", "vc_column", "[vc_", "[et_pb_", "et_pb_section", "wp-block-",
-    ]):
+    if any(
+        marker in content_lower
+        for marker in [
+            "vc_row",
+            "vc_column",
+            "[vc_",
+            "[et_pb_",
+            "et_pb_section",
+            "wp-block-",
+        ]
+    ):
         return SourceFormat.UNKNOWN
 
     if content.strip() and "<" in content and ">" in content:
@@ -96,14 +120,16 @@ def discover_migratable_items(  # noqa: C901
             if fmt == SourceFormat.UNKNOWN:
                 continue
 
-            items.append({
-                "id": item["id"],
-                "title": title,
-                "format": fmt,
-                "content_length": len(content),
-                "url": item.get("link", ""),
-                "slug": item.get("slug", ""),
-            })
+            items.append(
+                {
+                    "id": item["id"],
+                    "title": title,
+                    "format": fmt,
+                    "content_length": len(content),
+                    "url": item.get("link", ""),
+                    "slug": item.get("slug", ""),
+                }
+            )
         except Exception as e:
             logger.warning(f"Failed to fetch {post_type} {original_id}: {e}")
 

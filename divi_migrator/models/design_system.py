@@ -167,4 +167,3 @@ class DesignContext:
     source_format: str
     content_hash: str
     analyzed_at: datetime = field(default_factory=datetime.utcnow)
-

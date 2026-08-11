@@ -30,9 +30,9 @@ jobs:
         run: |
           ruff format --check .
           
-      - name: Type check (non-blocking)
+      - name: Type check
         run: |
-          python -m mypy divi_migrator/ --ignore-missing-imports || true
+          python -m mypy --strict divi_migrator
           
       - name: Unit tests
         run: |

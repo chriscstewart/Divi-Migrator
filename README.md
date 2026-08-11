@@ -1,6 +1,6 @@
 # divi-migrator
 
-> **WordPress Avada/Elementor/Plain HTML → Divi 5 migration framework.**
+> **WordPress Avada / Plain HTML → Divi 5 migration framework** (Elementor planned, not yet implemented).
 > Built for AI-assisted workflows, zero vendor lock-in.
 
 [![PyPI](https://img.shields.io/pypi/v/divi-migrator)](https://pypi.org/project/divi-migrator/)
@@ -15,7 +15,7 @@
 | Feature | Description |
 |---------|-------------|
 | 🔍 **Auto-discovery** | Finds all pages/posts with builder content via WP REST API |
-| 🎯 **Format detection** | Auto-detects Avada, Elementor, or plain HTML |
+| 🎯 **Format detection** | Auto-detects Avada or plain HTML (Elementor detection reserved for a future release) |
 | 🎨 **Design system** | Fetches global colors, fonts, presets from Divi Customizer |
 | 🔒 **Safe replacement** | Existing content renamed to `-old`, moved to Draft (not deleted) |
 | 🏷️ **Migration tracking** | All migrated content tagged with `divi-migrator` category |
@@ -220,7 +220,7 @@ divi_migrator/
 ├── converters/
 │   ├── base.py         # BaseConverter + Registry
 │   ├── avada.py        # Fusion Builder → Divi 5
-│   ├── elementor.py    # Elementor → Divi 5 (stub)
+│   ├── elementor.py    # Elementor (stub — not implemented in v0.1.0)
 │   └── plain_html.py   # HTML → Divi 5 wrapper
 ├── models/
 │   ├── __init__.py     # MigrationMeta, CheckpointRecord, etc.

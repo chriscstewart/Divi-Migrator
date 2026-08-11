@@ -38,14 +38,13 @@ EMPTY_USERNAME_ERROR = "Username cannot be empty"
 EMPTY_PASSWORD_ERROR = "Application password cannot be empty"
 
 
-
 class CredentialSource(Enum):
     """Sources for credentials, in priority order."""
 
-    AGENT_ENV = "agent_env"      # Agent-injected env vars (highest)
-    ENV_FILE = "env_file"        # .env files
+    AGENT_ENV = "agent_env"  # Agent-injected env vars (highest)
+    ENV_FILE = "env_file"  # .env files
     CONFIG_FILE = "config_file"  # config.yaml
-    PROMPT = "prompt"            # Interactive guided setup (human only)
+    PROMPT = "prompt"  # Interactive guided setup (human only)
 
 
 @dataclass
@@ -263,12 +262,14 @@ class ConfigLoader:
                 user=os.environ.get("DIVIOPS_USER"),
                 app_password=os.environ.get("DIVIOPS_APP_PASSWORD"),
                 timeout=int(os.environ.get("DIVIOPS_TIMEOUT", "60")),
-            ).resolve_from_wp(WPConfig(
-                url=os.environ["WP_URL"],
-                user=os.environ["WP_USER"],
-                app_password=os.environ["WP_APP_PASSWORD"],
-                ssl_verify=os.environ.get("WP_SSL_VERIFY", "true").lower() == "true",
-            )),
+            ).resolve_from_wp(
+                WPConfig(
+                    url=os.environ["WP_URL"],
+                    user=os.environ["WP_USER"],
+                    app_password=os.environ["WP_APP_PASSWORD"],
+                    ssl_verify=os.environ.get("WP_SSL_VERIFY", "true").lower() == "true",
+                )
+            ),
             migration=MigrationConfig(
                 rate_limit=float(os.environ.get("MIGRATION_RATE_LIMIT", "0.5")),
                 batch_size=int(os.environ.get("MIGRATION_BATCH_SIZE", "50")),
@@ -371,12 +372,14 @@ class ConfigLoader:
                         user=env_vars.get("DIVIOPS_USER"),
                         app_password=env_vars.get("DIVIOPS_APP_PASSWORD"),
                         timeout=int(env_vars.get("DIVIOPS_TIMEOUT", "60")),
-                    ).resolve_from_wp(WPConfig(
-                        url=env_vars["WP_URL"],
-                        user=env_vars["WP_USER"],
-                        app_password=env_vars["WP_APP_PASSWORD"],
-                        ssl_verify=env_vars.get("WP_SSL_VERIFY", "true").lower() == "true",
-                    )),
+                    ).resolve_from_wp(
+                        WPConfig(
+                            url=env_vars["WP_URL"],
+                            user=env_vars["WP_USER"],
+                            app_password=env_vars["WP_APP_PASSWORD"],
+                            ssl_verify=env_vars.get("WP_SSL_VERIFY", "true").lower() == "true",
+                        )
+                    ),
                     migration=MigrationConfig(
                         rate_limit=float(env_vars.get("MIGRATION_RATE_LIMIT", "0.5")),
                         batch_size=int(env_vars.get("MIGRATION_BATCH_SIZE", "50")),

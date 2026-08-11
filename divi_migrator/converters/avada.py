@@ -36,7 +36,9 @@ class AvadaConverter(BaseConverter):
         re.DOTALL,
     )
     BUTTON_PATTERN = re.compile(
-        r"\[fusion_button\b[^\]]*\]((?:.|\n)*?)\[/fusion_button\]|\[fusion_button\b[^\]]*\]", re.DOTALL
+        r"\[fusion_button\b[^\]]*\]((?:.|\n)*?)\[/fusion_button\]"
+        r"|\[fusion_button\b[^\]]*\]",
+        re.DOTALL,
     )
     IMAGE_PATTERN = re.compile(
         r"\[fusion_imageframe\b[^\]]*\](?:.*?\[/fusion_imageframe\])?", re.DOTALL
@@ -47,9 +49,7 @@ class AvadaConverter(BaseConverter):
     )
     MAP_PATTERN = re.compile(r"\[fusion_map[^\]]*\](?:.*?\[/fusion_map\])?", re.DOTALL)
     VIDEO_PATTERN = re.compile(r"\[fusion_video\b[^\]]*\](?:.*?\[/fusion_video\])?", re.DOTALL)
-    GALLERY_PATTERN = re.compile(
-        r"\[fusion_gallery[^\]]*\](.*?)\[/fusion_gallery\]", re.DOTALL
-    )
+    GALLERY_PATTERN = re.compile(r"\[fusion_gallery[^\]]*\](.*?)\[/fusion_gallery\]", re.DOTALL)
     TABS_PATTERN = re.compile(r"\[fusion_tabs[^\]]*\](.*?)\[/fusion_tabs\]", re.DOTALL)
     TAB_PATTERN = re.compile(r"\[fusion_tab[^\]]*\](.*?)\[/fusion_tab\]", re.DOTALL)
     TOGGLES_PATTERN = re.compile(r"\[fusion_toggles[^\]]*\](.*?)\[/fusion_toggles\]", re.DOTALL)
@@ -72,15 +72,23 @@ class AvadaConverter(BaseConverter):
     )
     CODE_PATTERN = re.compile(r"\[fusion_code[^\]]*\](.*?)\[/fusion_code\]", re.DOTALL)
     RAW_PATTERN = re.compile(r"\[fusion_raw[^\]]*\](.*?)\[/fusion_raw\]", re.DOTALL)
-    WOO_SHORTCODES_PATTERN = re.compile(r"\[fusion_woo_shortcodes[^\]]*\](.*?)\[/fusion_woo_shortcodes\]", re.DOTALL)  # noqa: E501
+    WOO_SHORTCODES_PATTERN = re.compile(
+        r"\[fusion_woo_shortcodes[^\]]*\](.*?)\[/fusion_woo_shortcodes\]", re.DOTALL
+    )  # noqa: E501
 
-    YOUTUBE_PATTERN = re.compile(r"\[fusion_youtube\b[^\]]*\](?:.*?\[/fusion_youtube\])?", re.DOTALL)  # noqa: E501
+    YOUTUBE_PATTERN = re.compile(
+        r"\[fusion_youtube\b[^\]]*\](?:.*?\[/fusion_youtube\])?", re.DOTALL
+    )  # noqa: E501
     VIMEO_PATTERN = re.compile(r"\[fusion_vimeo[^\]]*]", re.DOTALL)
-    TESTIMONIALS_PATTERN = re.compile(r"\[fusion_testimonials[^\]]*\](.*?)\[/fusion_testimonials\]", re.DOTALL)  # noqa: E501
+    TESTIMONIALS_PATTERN = re.compile(
+        r"\[fusion_testimonials[^\]]*\](.*?)\[/fusion_testimonials\]", re.DOTALL
+    )  # noqa: E501
     CONTENT_BOX_PATTERN = re.compile(
         r"\[fusion_content_box[^\]]*\](?:.*?\[/fusion_content_box\])?", re.DOTALL
     )
-    CONTENT_BOXES_PATTERN = re.compile(r"\[fusion_content_boxes[^\]]*\](.*?)\[/fusion_content_boxes\]", re.DOTALL)  # noqa: E501
+    CONTENT_BOXES_PATTERN = re.compile(
+        r"\[fusion_content_boxes[^\]]*\](.*?)\[/fusion_content_boxes\]", re.DOTALL
+    )  # noqa: E501
     FAQ_PATTERN = re.compile(r"\[fusion_faq[^\]]*\](?:.*?\[/fusion_faq\])?", re.DOTALL)
     FAQ_ITEM_PATTERN = re.compile(r"\[fusion_faq_item[^\]]*\](.*?)\[/fusion_faq_item\]", re.DOTALL)
     COUNTDOWN_PATTERN = re.compile(
@@ -350,12 +358,11 @@ class AvadaConverter(BaseConverter):
         converted = self.CONTAINER_PATTERN.sub(replace_container, content)
         # Final sweep: drop any leftover fusion_title tags (self-closing or
         # unclosed) that fell outside rows/columns and were never converted.
-        converted = re.sub(
+        return re.sub(
             r"\[fusion_title[^\]]*?/\]|\[fusion_title[^\]]*?\][\s\S]*?(?:\[/fusion_title\]|$)",
             "",
             converted,
         )
-        return converted
 
     def _convert_container_to_blocks(self, match: re.Match[str]) -> str:
         """Convert fusion_builder_container to Divi 5 blocks."""
@@ -410,7 +417,7 @@ class AvadaConverter(BaseConverter):
         (narrow) columns together in a separate row. This preserves the intended
         layout: a full-width banner above a real multi-column row.
         """
-        from divi_migrator.converters.divi5_blocks import row, row_flex  # noqa: PLC0415
+        from divi_migrator.converters.divi5_blocks import row, row_flex, RowBackground  # noqa: PLC0415
 
         row_attrs = self.extract_row_attrs(row_match)
         columns = [c for c in self.COLUMN_PATTERN.findall(row_match) if c[1].strip()]
@@ -454,8 +461,10 @@ class AvadaConverter(BaseConverter):
             return row_flex(
                 columns_html,
                 flex_columns=flex_columns,
-                background_color=bg_color,
-                background_image=({"src": bg_image} if bg_image else None),
+                background=RowBackground(
+                    color=bg_color,
+                    image_url=(bg_image if bg_image else None),
+                ),
             )
         return row(columns_html, layout="4_4", flex_columns=flex_columns)
 
@@ -474,8 +483,12 @@ class AvadaConverter(BaseConverter):
 
         # Process inner content - convert to Divi 5 blocks
         # IMPORTANT: Process WRAPPER patterns FIRST (they contain individual items)
-        inner_content = self.TESTIMONIALS_PATTERN.sub(self._convert_testimonials_to_block, inner_content)  # noqa: E501
-        inner_content = self.CONTENT_BOXES_PATTERN.sub(self._convert_content_boxes_to_block, inner_content)  # noqa: E501
+        inner_content = self.TESTIMONIALS_PATTERN.sub(
+            self._convert_testimonials_to_block, inner_content
+        )  # noqa: E501
+        inner_content = self.CONTENT_BOXES_PATTERN.sub(
+            self._convert_content_boxes_to_block, inner_content
+        )  # noqa: E501
         inner_content = self.FAQ_PATTERN.sub(self._convert_faq_to_block, inner_content)
         # Drop empty self-closing fusion_title tags before individual-item processing.
         inner_content = self.TITLE_SELFCLOSE_PATTERN.sub("", inner_content)
@@ -490,12 +503,18 @@ class AvadaConverter(BaseConverter):
         inner_content = self.YOUTUBE_PATTERN.sub(self._convert_youtube_to_block, inner_content)
         inner_content = self.VIMEO_PATTERN.sub(self._convert_vimeo_to_block, inner_content)
         inner_content = self.VIDEO_PATTERN.sub(self._convert_video_to_block, inner_content)
-        inner_content = self.TESTIMONIAL_PATTERN.sub(self._convert_testimonial_to_block, inner_content)  # noqa: E501
+        inner_content = self.TESTIMONIAL_PATTERN.sub(
+            self._convert_testimonial_to_block, inner_content
+        )  # noqa: E501
         inner_content = self.PERSON_PATTERN.sub(self._convert_person_to_block, inner_content)
         inner_content = self.MAP_PATTERN.sub(self._convert_map_to_block, inner_content)
-        inner_content = self.CONTENT_BOX_PATTERN.sub(self._convert_content_box_to_block, inner_content)  # noqa: E501
+        inner_content = self.CONTENT_BOX_PATTERN.sub(
+            self._convert_content_box_to_block, inner_content
+        )  # noqa: E501
         inner_content = self.COUNTDOWN_PATTERN.sub(self._convert_countdown_to_block, inner_content)
-        inner_content = self.CHECKLIST_FULL_PATTERN.sub(self._convert_checklist_to_block, inner_content)  # noqa: E501
+        inner_content = self.CHECKLIST_FULL_PATTERN.sub(
+            self._convert_checklist_to_block, inner_content
+        )  # noqa: E501
         inner_content = self.BLOG_PATTERN.sub(self._convert_blog_to_block, inner_content)
         # Native-HTML converters (modules that don't render from raw post_content)
         inner_content = self.ACCORDION_PATTERN.sub(self._convert_accordion_to_block, inner_content)
@@ -558,7 +577,6 @@ class AvadaConverter(BaseConverter):
             r"\[fusion_faq\]",
             r"\[/fusion_content_box\]",
             r"\[/fusion_testimonial\]",
-
             # Closing-tag backstops (in case any module's open/close pair slips through)
             r"\[/fusion_button\]",
             r"\[/fusion_imageframe\]",
@@ -643,7 +661,7 @@ class AvadaConverter(BaseConverter):
                 cm = re.search(r"color\s*:\s*(#[0-9a-f]{3,8}|rgba?\([^)]*\))", st)
                 if cm:
                     color = cm.group(1)
-            rest = cleaned[lead.end():].strip()
+            rest = cleaned[lead.end() :].strip()
             rest = _clean_html(rest).strip()
             if h_inner:
                 if rest:
@@ -704,7 +722,8 @@ class AvadaConverter(BaseConverter):
             # Strip the wrapping heading tags, keep inner markup + text.
             stripped = re.sub(r"</?h[1-6][^>]*>", "", inner, flags=re.IGNORECASE).strip()
             # A pure-text heading -> divi/heading; rich HTML -> divi/text.
-            if re.search(r"<(?!/?(?:b|strong|em|i|span|br|u|sub|sup|a)\b)[a-z]", stripped, re.IGNORECASE):
+            rich_inline = r"<(?!/?(?:b|strong|em|i|span|br|u|sub|sup|a)\b)[a-z]"
+            if re.search(rich_inline, stripped, re.IGNORECASE):
                 return text(_clean_html(inner))
             title_text = _clean_html(stripped)
         else:
@@ -813,6 +832,7 @@ class AvadaConverter(BaseConverter):
     def _convert_separator_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_separator to Divi 5 divider block."""
         from divi_migrator.converters.divi5_blocks import divider  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
@@ -836,7 +856,9 @@ class AvadaConverter(BaseConverter):
         yt_url = attrs.get("id", "")
         if not yt_url:
             return ""
-        vid_match = re.search(r"(?:youtu\.be/|youtube\.com/watch\?v=|youtube\.com/embed/)([\w-]{11})", yt_url)  # noqa: E501
+        vid_match = re.search(
+            r"(?:youtu\.be/|youtube\.com/watch\?v=|youtube\.com/embed/)([\w-]{11})", yt_url
+        )  # noqa: E501
         if not vid_match:
             vid_match = re.search(r"^([\w-]{11})$", yt_url.strip())
         if vid_match:
@@ -878,8 +900,10 @@ class AvadaConverter(BaseConverter):
         attrs = self.extract_all_attrs(full)
 
         vid_url = (
-            attrs.get("src", "") or attrs.get("mp4", "")
-            or attrs.get("webm", "") or attrs.get("ogv", "")
+            attrs.get("src", "")
+            or attrs.get("mp4", "")
+            or attrs.get("webm", "")
+            or attrs.get("ogv", "")
         )
         if vid_url:
             return video(vid_url, "video")
@@ -888,11 +912,14 @@ class AvadaConverter(BaseConverter):
     def _convert_testimonial_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_testimonial to Divi 5 blurb block."""
         from divi_migrator.converters.divi5_blocks import blurb  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
         # Try to get content from between tags first
-        content_match = re.search(r"\[fusion_testimonial[^\]]*\](.*?)\[/fusion_testimonial\]", full, re.DOTALL)  # noqa: E501
+        content_match = re.search(
+            r"\[fusion_testimonial[^\]]*\](.*?)\[/fusion_testimonial\]", full, re.DOTALL
+        )  # noqa: E501
         content = _clean_html(content_match.group(1)) if content_match else ""
 
         # If no content between tags, check content attribute (self-closing)
@@ -911,34 +938,47 @@ class AvadaConverter(BaseConverter):
 
     def _convert_testimonials_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_testimonials wrapper to Divi blurb modules in rows."""
-        from divi_migrator.converters.divi5_blocks import blurb, row, column, section, placeholder, _clean_html  # noqa: E501,PLC0415
+        from divi_migrator.converters.divi5_blocks import (  # noqa: PLC0415
+            blurb,
+            row,
+            column,
+            section,
+            placeholder,
+            _clean_html,
+        )  # noqa: E501,PLC0415
 
         inner = match.group(1)
         testimonials = []
 
-        t_pattern = re.compile(r"\[fusion_testimonial[^\]]*\](.*?)\[/fusion_testimonial\]", re.DOTALL)  # noqa: E501
+        t_pattern = re.compile(
+            r"\[fusion_testimonial[^\]]*\](.*?)\[/fusion_testimonial\]", re.DOTALL
+        )  # noqa: E501
         for m in t_pattern.finditer(inner):
             t_shortcode = m.group(0)
             t_content = m.group(1)
             t_attrs = self.extract_all_attrs(t_shortcode)
 
-            testimonials.append({
-                "name": t_attrs.get("name", ""),
-                "title": t_attrs.get("title", "") or t_attrs.get("company", ""),
-                "content": _clean_html(t_content),
-                "image": t_attrs.get("image", "")
-            })
+            testimonials.append(
+                {
+                    "name": t_attrs.get("name", ""),
+                    "title": t_attrs.get("title", "") or t_attrs.get("company", ""),
+                    "content": _clean_html(t_content),
+                    "image": t_attrs.get("image", ""),
+                }
+            )
 
         s_pattern = re.compile(r"\[fusion_testimonial[^\]]*\]")
         for m in s_pattern.finditer(inner):
             t_attrs = self.extract_all_attrs(m.group(0))
             if t_attrs.get("name") or t_attrs.get("content"):
-                testimonials.append({
-                    "name": t_attrs.get("name", ""),
-                    "title": t_attrs.get("title", "") or t_attrs.get("company", ""),
-                    "content": t_attrs.get("content", "") or t_attrs.get("testimonial", ""),
-                    "image": t_attrs.get("image", "")
-                })
+                testimonials.append(
+                    {
+                        "name": t_attrs.get("name", ""),
+                        "title": t_attrs.get("title", "") or t_attrs.get("company", ""),
+                        "content": t_attrs.get("content", "") or t_attrs.get("testimonial", ""),
+                        "image": t_attrs.get("image", ""),
+                    }
+                )
 
         if not testimonials:
             return ""
@@ -948,15 +988,17 @@ class AvadaConverter(BaseConverter):
             blurb_content = t["content"]
             if t.get("title"):
                 blurb_content = f'<p class="testimonial-title">{t["title"]}</p>' + blurb_content
-            blurb_blocks.append(blurb(
-                title=t["name"],
-                content=blurb_content,
-                image=t["image"] if t.get("image") else None,
-            ))
+            blurb_blocks.append(
+                blurb(
+                    title=t["name"],
+                    content=blurb_content,
+                    image=t["image"] if t.get("image") else None,
+                )
+            )
 
         rows = []
         for i in range(0, len(blurb_blocks), 3):
-            row_blurbs = blurb_blocks[i:i+3]
+            row_blurbs = blurb_blocks[i : i + 3]
             col_blocks = [column(b, layout="4_4") for b in row_blurbs]
             rows.append(row("".join(col_blocks)))
 
@@ -979,29 +1021,44 @@ class AvadaConverter(BaseConverter):
         image = attrs.get("image", "")
         description = _clean_html(attrs.get("description", ""))
         social: list[str] = []
-        for key in ["facebook", "twitter", "linkedin", "instagram", "pinterest", "youtube", "vimeo"]:  # noqa: E501
+        for key in [
+            "facebook",
+            "twitter",
+            "linkedin",
+            "instagram",
+            "pinterest",
+            "youtube",
+            "vimeo",
+        ]:  # noqa: E501
             val = attrs.get(key, "")
             if val:
-                social.append(f'<a href="{val}" class="person-social person-{key}" rel="noopener">{key.title()}</a>')  # noqa: E501
+                social.append(
+                    f'<a href="{val}" class="person-social person-{key}" rel="noopener">{key.title()}</a>'  # noqa: E501
+                )
 
-        img_html = f'<img src="{image}" alt="{name}" class="person-photo" style="max-width:200px;height:auto;">' if image else ""  # noqa: E501
+        img_html = (
+            f'<img src="{image}" alt="{name}" class="person-photo" style="max-width:200px;height:auto;">'  # noqa: E501
+            if image
+            else ""
+        )  # noqa: E501
         bio = f'<p class="person-bio">{description}</p>' if description else ""
         title_html = f'<p class="person-title">{title}</p>' if title else ""
         social_html = f'<p class="person-socials">{" ".join(social)}</p>' if social else ""
         card = (
             f'<div class="person-card">'
-            f'{img_html}'
+            f"{img_html}"
             f'<h3 class="person-name">{name}</h3>'
-            f'{title_html}'
-            f'{bio}'
-            f'{social_html}'
-            f'</div>'
+            f"{title_html}"
+            f"{bio}"
+            f"{social_html}"
+            f"</div>"
         )
         return text(card)
 
     def _convert_content_box_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_content_box to Divi 5 blurb block (blurb renders)."""
         from divi_migrator.converters.divi5_blocks import blurb  # noqa: PLC0415
+
         full = match.group(0)
         attrs = self.extract_all_attrs(full)
 
@@ -1011,37 +1068,48 @@ class AvadaConverter(BaseConverter):
         link = attrs.get("link", "")
         content = attrs.get("content", "")
 
-        return blurb(title=title, content=content, icon=icon if icon else None, image=image if image else None, url=link if link else None)  # noqa: E501
+        return blurb(
+            title=title,
+            content=content,
+            icon=icon if icon else None,
+            image=image if image else None,
+            url=link if link else None,
+        )  # noqa: E501
 
     def _convert_content_boxes_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_content_boxes wrapper to Divi blurbs in rows (blurb renders)."""
         from divi_migrator.converters.divi5_blocks import blurb, row, column, section, placeholder  # noqa: PLC0415
+
         inner = match.group(1)
         boxes = []
         box_pattern = re.compile(r"\[fusion_content_box[^\]]*\]", re.DOTALL)
         for m in box_pattern.finditer(inner):
             attrs = self.extract_all_attrs(m.group(0))
-            boxes.append({
-                "title": attrs.get("title", ""),
-                "icon": attrs.get("icon", ""),
-                "image": attrs.get("image", ""),
-                "link": attrs.get("link", ""),
-                "content": attrs.get("content", "")
-            })
+            boxes.append(
+                {
+                    "title": attrs.get("title", ""),
+                    "icon": attrs.get("icon", ""),
+                    "image": attrs.get("image", ""),
+                    "link": attrs.get("link", ""),
+                    "content": attrs.get("content", ""),
+                }
+            )
         if not boxes:
             return ""
         blurb_blocks = []
         for b in boxes:
-            blurb_blocks.append(blurb(
-                title=b["title"],
-                content=b["content"],
-                icon=b["icon"] if b.get("icon") else None,
-                image=b["image"] if b.get("image") else None,
-                url=b["link"] if b.get("link") else None,
-            ))
+            blurb_blocks.append(
+                blurb(
+                    title=b["title"],
+                    content=b["content"],
+                    icon=b["icon"] if b.get("icon") else None,
+                    image=b["image"] if b.get("image") else None,
+                    url=b["link"] if b.get("link") else None,
+                )
+            )
         rows = []
         for i in range(0, len(blurb_blocks), 3):
-            row_blurbs = blurb_blocks[i:i+3]
+            row_blurbs = blurb_blocks[i : i + 3]
             col_blocks = [column(b, layout="4_4") for b in row_blurbs]
             rows.append(row("".join(col_blocks)))
         return placeholder(section("".join(rows)))
@@ -1060,10 +1128,12 @@ class AvadaConverter(BaseConverter):
         for m in self.FAQ_ITEM_PATTERN.finditer(inner):
             item_attrs = self.extract_all_attrs(m.group(0))
             item_content = _clean_html(m.group(1))
-            faq_items.append({
-                "title": item_attrs.get("title", ""),
-                "content": item_content,
-            })
+            faq_items.append(
+                {
+                    "title": item_attrs.get("title", ""),
+                    "content": item_content,
+                }
+            )
         if not faq_items:
             return ""
         details = "".join(
@@ -1087,10 +1157,12 @@ class AvadaConverter(BaseConverter):
         for m in self.TAB_PATTERN.finditer(inner):
             tab_attrs = self.extract_all_attrs(m.group(0))
             tab_content = _clean_html(m.group(1))
-            tab_items.append({
-                "title": tab_attrs.get("title", ""),
-                "content": tab_content,
-            })
+            tab_items.append(
+                {
+                    "title": tab_attrs.get("title", ""),
+                    "content": tab_content,
+                }
+            )
         if not tab_items:
             return ""
         details = "".join(
@@ -1147,6 +1219,7 @@ class AvadaConverter(BaseConverter):
 
     def _convert_blog_to_block(self, match: re.Match[str]) -> str:  # noqa: ARG002
         from divi_migrator.converters.divi5_blocks import blog  # noqa: PLC0415
+
         return blog()
 
     def _convert_map_to_block(self, match: re.Match[str]) -> str:
@@ -1166,10 +1239,7 @@ class AvadaConverter(BaseConverter):
         if not lat or not lng:
             return ""
         q = attrs.get("address", "") or f"{lat},{lng}"
-        embed_src = (
-            "https://www.google.com/maps?q="
-            f"{q.replace(' ', '+')}&z={zoom}&output=embed"
-        )
+        embed_src = f"https://www.google.com/maps?q={q.replace(' ', '+')}&z={zoom}&output=embed"
         return text(
             f'<iframe class="fusion-google-map" width="100%" height="400" '
             f'src="{embed_src}" title="Google Map" loading="lazy" '
@@ -1190,10 +1260,12 @@ class AvadaConverter(BaseConverter):
         for m in self.TOGGLE_PATTERN.finditer(inner):
             item_attrs = self.extract_all_attrs(m.group(0))
             item_content = _clean_html(m.group(1))
-            items.append({
-                "title": item_attrs.get("title", ""),
-                "content": item_content,
-            })
+            items.append(
+                {
+                    "title": item_attrs.get("title", ""),
+                    "content": item_content,
+                }
+            )
         if not items:
             return ""
         details = "".join(
@@ -1275,9 +1347,7 @@ class AvadaConverter(BaseConverter):
         inner = match.group(1) if match.lastindex else match.group(0)
         # fusion_gallery wraps [fusion_gallery_image image_id="..." /] children
         imgs = []
-        for m in re.finditer(
-            r"\[fusion_gallery_image\b([^\]]*)/?\]", inner, re.DOTALL
-        ):
+        for m in re.finditer(r"\[fusion_gallery_image\b([^\]]*)/?\]", inner, re.DOTALL):
             attrs = self.extract_all_attrs(m.group(0))
             image_id = attrs.get("image_id", "") or attrs.get("image", "")
             img_src = self._resolve_image_src(image_id)
@@ -1286,7 +1356,7 @@ class AvadaConverter(BaseConverter):
                 imgs.append(f'<img src="{img_src}" alt="{alt}" loading="lazy" />')
         if not imgs:
             return ""
-        return text(f'<div class="fusion-gallery">{"" .join(imgs)}</div>')
+        return text(f'<div class="fusion-gallery">{"".join(imgs)}</div>')
 
     def _convert_images_to_block(self, match: re.Match[str]) -> str:
         """Convert fusion_images image-set/carousel to a native placeholder.
@@ -1302,8 +1372,8 @@ class AvadaConverter(BaseConverter):
         cols = attrs.get("columns", "").strip() or "multiple"
         return text(
             f'<div class="fusion-images-placeholder">'
-            f'Image gallery ({cols} columns) — view the media library for these images.'
-            f'</div>'
+            f"Image gallery ({cols} columns) — view the media library for these images."
+            f"</div>"
         )
 
     def _convert_social_links_to_block(self, match: re.Match[str]) -> str:
@@ -1318,11 +1388,37 @@ class AvadaConverter(BaseConverter):
         attrs = self.extract_all_attrs(full)
         # Avada stores each network as an attribute: facebook="https://...", etc.
         known = [
-            "blogger", "deviantart", "digg", "dribbble", "dropbox", "facebook",
-            "flickr", "forrst", "googleplus", "instagram", "linkedin", "myspace",
-            "pinterest", "reddit", "rss", "skype", "snapchat", "soundcloud",
-            "spotify", "tiktok", "tumblr", "twitch", "twitter", "vimeo",
-            "vk", "wechat", "whatsapp", "xing", "yahoo", "yelp", "youtube",
+            "blogger",
+            "deviantart",
+            "digg",
+            "dribbble",
+            "dropbox",
+            "facebook",
+            "flickr",
+            "forrst",
+            "googleplus",
+            "instagram",
+            "linkedin",
+            "myspace",
+            "pinterest",
+            "reddit",
+            "rss",
+            "skype",
+            "snapchat",
+            "soundcloud",
+            "spotify",
+            "tiktok",
+            "tumblr",
+            "twitch",
+            "twitter",
+            "vimeo",
+            "vk",
+            "wechat",
+            "whatsapp",
+            "xing",
+            "yahoo",
+            "yelp",
+            "youtube",
         ]
         links = []
         for net in known:
@@ -1353,9 +1449,7 @@ class AvadaConverter(BaseConverter):
         cat = attrs.get("cat_slug", "").strip()
         base = ""
         if self.wp_client is not None:
-            base = getattr(self.wp_client, "base_url", "") or getattr(
-                self.wp_client, "_url", ""
-            )
+            base = getattr(self.wp_client, "base_url", "") or getattr(self.wp_client, "_url", "")
         base = base.rstrip("/")
         if cat:
             href = f"{base}/events/category/{cat}/"
@@ -1363,10 +1457,7 @@ class AvadaConverter(BaseConverter):
         else:
             href = f"{base}/events/"
             label = "View all events"
-        return text(
-            f'<div class="fusion-events-placeholder">'
-            f'<a href="{href}">{label}</a></div>'
-        )
+        return text(f'<div class="fusion-events-placeholder"><a href="{href}">{label}</a></div>')
 
     def extract_assets(self, content: str) -> ExtractedAssets:
         """Extract images, buttons, forms from Avada content."""
@@ -1375,21 +1466,25 @@ class AvadaConverter(BaseConverter):
         # Extract images
         for match in self.IMAGE_PATTERN.finditer(content):
             attrs = self.extract_image_attrs(match.group(0))
-            assets.images.append({
-                "src": attrs.get("src", ""),
-                "alt": attrs.get("alt", ""),
-                "title": attrs.get("title", ""),
-                "type": "fusion_imageframe",
-            })
+            assets.images.append(
+                {
+                    "src": attrs.get("src", ""),
+                    "alt": attrs.get("alt", ""),
+                    "title": attrs.get("title", ""),
+                    "type": "fusion_imageframe",
+                }
+            )
 
         # Extract buttons
         for match in self.BUTTON_PATTERN.finditer(content):
             attrs = self.extract_button_attrs(match.group(0))
-            assets.buttons.append({
-                "text": attrs.get("text", ""),
-                "url": attrs.get("link", ""),
-                "type": "fusion_button",
-            })
+            assets.buttons.append(
+                {
+                    "text": attrs.get("text", ""),
+                    "url": attrs.get("link", ""),
+                    "type": "fusion_button",
+                }
+            )
 
         # Extract forms (if any)
         # Fusion forms would be [fusion_form] shortcodes

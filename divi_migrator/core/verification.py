@@ -99,9 +99,7 @@ class VerificationEngine:
         # Check for primary color usage
         has_primary = any(PRIMARY_TOKEN in str(c) for c in result.background_colors)
         if not has_primary and result.background_colors:
-            issues.append(
-                f"Primary color token '{PRIMARY_TOKEN}' not found in backgrounds"
-            )
+            issues.append(f"Primary color token '{PRIMARY_TOKEN}' not found in backgrounds")
 
         return issues
 
@@ -110,14 +108,10 @@ class VerificationEngine:
     ) -> None:
         """Check expected values against actual."""
         if expected.get("images", 0) > 0 and result.images < expected["images"]:
-            issues.append(
-                f"Images: expected at least {expected['images']}, got {result.images}"
-            )
+            issues.append(f"Images: expected at least {expected['images']}, got {result.images}")
 
         if expected.get("buttons", 0) > 0 and result.buttons < expected["buttons"]:
-            issues.append(
-                f"Buttons: expected at least {expected['buttons']}, got {result.buttons}"
-            )
+            issues.append(f"Buttons: expected at least {expected['buttons']}, got {result.buttons}")
 
         if expected.get("forms", 0) > 0 and result.modules == 0:
             issues.append(f"Forms: expected at least {expected['forms']}, got 0")

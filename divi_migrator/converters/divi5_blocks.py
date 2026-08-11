@@ -7,8 +7,10 @@ All blocks use `<!-- wp:divi/... -->` format with proper `module` wrapper,
 `builderVersion: "5.9.0"`, and `innerContent` structured as `[{"desktop": {"value": "..."}}]`.
 """
 
+import html
 import json
 import re
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -28,7 +30,9 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     return result
 
 
-def make_block(block_type: str, attrs: dict[str, Any], inner: str = "", is_self_closing: bool = False) -> str:  # noqa: E501
+def make_block(
+    block_type: str, attrs: dict[str, Any], inner: str = "", is_self_closing: bool = False
+) -> str:  # noqa: E501
     """Create a Divi 5 block comment with attributes.
 
     In real Divi 5 the block comment carries top-level keys such as
@@ -65,7 +69,9 @@ def placeholder(inner: str) -> str:
 # =============================================================================
 
 
-def _section_module(bg: dict[str, Any] | None = None, spacing: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: E501
+def _section_module(
+    bg: dict[str, Any] | None = None, spacing: dict[str, Any] | None = None
+) -> dict[str, Any]:  # noqa: E501
     """Build section module attributes."""
     m: dict[str, Any] = {
         "decoration": {
@@ -157,7 +163,9 @@ def _row_module(
         },
         "decoration": {
             "layout": {
-                "desktop": {"value": {"display": "flex", "flexWrap": "nowrap", "alignItems": "center"}},  # noqa: E501
+                "desktop": {
+                    "value": {"display": "flex", "flexWrap": "nowrap", "alignItems": "center"}
+                },  # noqa: E501
                 "phone": {"value": {"flexWrap": "wrap"}},
                 "phoneWide": {"value": {"flexWrap": "wrap"}},
             },
@@ -180,18 +188,27 @@ def row(inner: str, columns: str = "4_4", flex_columns: int = 2, **attrs: Any) -
     return make_block("divi/row", m, inner=inner, is_self_closing=False)
 
 
+@dataclass
+class RowBackground:
+    """Optional background for a flex row."""
+
+    color: str | None = None
+    image_url: str | None = None
+
+
 def row_flex(
     inner: str,
     column_structure: str = "4_4",
     flex: dict[str, Any] | None = None,
-    background_color: str | None = None,
-    background_image: dict[str, Any] | None = None,
+    background: RowBackground | None = None,
     flex_columns: int = 2,
     **attrs: Any,
 ) -> str:
     """Create a flex row with optional background."""
-    img = background_image.get("src") if isinstance(background_image, dict) else background_image
-    bg = build_background(color=background_color, image_url=img)
+    bg = None
+    if background is not None:
+        img = background.image_url
+        bg = build_background(color=background.color, image_url=img)
     m = {"module": _row_module(column_structure, flex, background=bg, flex_columns=flex_columns)}
     if attrs:
         m = _deep_merge(m, attrs)
@@ -207,16 +224,18 @@ def row_flex(
 # Everything else (5ths/6ths) falls back to equal 24_24 so we never emit an
 # unknown fraction that Divi can't render.
 LAYOUT_TO_FLEXTYPE: dict[str, str] = {
-    "4_4": "24_24",   # 1_1 full
-    "2_4": "12_12",   # 1_2 half
-    "3_12": "8_12",   # 1_3
+    "4_4": "24_24",  # 1_1 full
+    "2_4": "12_12",  # 1_2 half
+    "3_12": "8_12",  # 1_3
     "6_12": "16_12",  # 2_3
-    "2_12": "6_12",   # 1_4
+    "2_12": "6_12",  # 1_4
     "9_12": "18_12",  # 3_4
 }
 
 
-def _column_module(layout: str = "4_4", module_attrs: dict[str, Any] | None = None, flex_type: str | None = None) -> dict[str, Any]:  # noqa: E501
+def _column_module(
+    layout: str = "4_4", module_attrs: dict[str, Any] | None = None, flex_type: str | None = None
+) -> dict[str, Any]:  # noqa: E501
     """Build column module attributes."""
     flex = flex_type or LAYOUT_TO_FLEXTYPE.get(layout, "24_24")
     m: dict[str, Any] = {
@@ -236,7 +255,13 @@ def _column_module(layout: str = "4_4", module_attrs: dict[str, Any] | None = No
     return m
 
 
-def column(inner: str, layout: str = "4_4", module: dict[str, Any] | None = None, flex_type: str | None = None, **attrs: Any) -> str:  # noqa: E501
+def column(
+    inner: str,
+    layout: str = "4_4",
+    module: dict[str, Any] | None = None,
+    flex_type: str | None = None,
+    **attrs: Any,
+) -> str:  # noqa: E501
     """Create a divi/column block."""
     m = {"module": _column_module(layout, module, flex_type=flex_type)}
     if attrs:
@@ -265,11 +290,7 @@ def linkify_bare_urls(html: str) -> str:
 def _text_module(html: str) -> dict[str, Any]:
     """Build text block attributes (top-level ``content`` + ``module``)."""
     return {
-        "content": {
-            "innerContent": {
-                "desktop": {"value": html}
-            }
-        },
+        "content": {"innerContent": {"desktop": {"value": html}}},
         "module": {
             "decoration": {
                 "layout": {"desktop": {"value": {"justifyContent": "start"}}},
@@ -302,33 +323,29 @@ def text(html: str, **attrs: Any) -> str:
 # =============================================================================
 
 
-def _heading_module(text_content: str, level: str = "h2", color: str | None = None, alignment: str = "left") -> dict[str, Any]:  # noqa: E501
+def _heading_module(
+    text_content: str, level: str = "h2", color: str | None = None, alignment: str = "left"
+) -> dict[str, Any]:  # noqa: E501
     """Build heading block attributes (top-level ``title`` + ``module``)."""
     m: dict[str, Any] = {
         "title": {
-            "innerContent": {
-                "desktop": {"value": text_content}
-            },
-            "decoration": {
-                "font": {
-                    "font": {
-                        "desktop": {"value": {"headingLevel": level}}
-                    }
-                }
-            },
+            "innerContent": {"desktop": {"value": text_content}},
+            "decoration": {"font": {"font": {"desktop": {"value": {"headingLevel": level}}}}},
         },
-        "module": {
-            "decoration": {
-                "layout": {"desktop": {"value": {"justifyContent": alignment}}}
-            }
-        },
+        "module": {"decoration": {"layout": {"desktop": {"value": {"justifyContent": alignment}}}}},
     }
     if color:
         m["title"]["decoration"]["font"]["font"]["desktop"]["value"]["color"] = color
     return m
 
 
-def heading(text_content: str, level: str = "h2", color: str | None = None, alignment: str = "left", **attrs: Any) -> str:  # noqa: E501
+def heading(
+    text_content: str,
+    level: str = "h2",
+    color: str | None = None,
+    alignment: str = "left",
+    **attrs: Any,
+) -> str:  # noqa: E501
     """Create a divi/heading block."""
     m = _heading_module(text_content, level, color, alignment)
     if attrs:
@@ -341,7 +358,9 @@ def heading(text_content: str, level: str = "h2", color: str | None = None, alig
 # =============================================================================
 
 
-def _button_module(text_content: str, url: str, color: str = "#e8cb90", alignment: str = "center") -> dict[str, Any]:  # noqa: E501
+def _button_module(
+    text_content: str, url: str, color: str = "#e8cb90", alignment: str = "center"
+) -> dict[str, Any]:  # noqa: E501
     """Build button block attributes (canonical Divi 5 shape).
 
     Button content MUST be ``button.innerContent.desktop.value`` as an OBJECT
@@ -352,23 +371,28 @@ def _button_module(text_content: str, url: str, color: str = "#e8cb90", alignmen
     """
     return {
         "button": {
-            "innerContent": {
-                "desktop": {"value": {"text": text_content, "linkUrl": url}}
-            },
+            "innerContent": {"desktop": {"value": {"text": text_content, "linkUrl": url}}},
             "decoration": {
-                "button": {"desktop": {"value": {"icon": {"enable": "off"}}}},
+                "button": {
+                    "desktop": {
+                        "value": {
+                            "icon": {"enable": "off"},
+                            "background": {"color": {"desktop": {"value": color}}},
+                        }
+                    },
+                },
                 "sizing": {"desktop": {"value": {"alignment": alignment}}},
             },
         },
         "module": {
-            "decoration": {
-                "animation": {"desktop": {"value": {"style": "fade", "delay": "0ms"}}}
-            }
+            "decoration": {"animation": {"desktop": {"value": {"style": "fade", "delay": "0ms"}}}}
         },
     }
 
 
-def button(text_content: str, url: str, color: str = "#e8cb90", alignment: str = "center", **attrs: Any) -> str:  # noqa: E501
+def button(
+    text_content: str, url: str, color: str = "#e8cb90", alignment: str = "center", **attrs: Any
+) -> str:  # noqa: E501
     """Create a divi/button block."""
     m = _button_module(text_content, url, color, alignment)
     if attrs:
@@ -392,9 +416,7 @@ def _image_module(src: str, alt: str = "", link: str | None = None) -> dict[str,
     m: dict[str, Any] = {
         "image": {"innerContent": {"desktop": {"value": value}}},
         "module": {
-            "decoration": {
-                "animation": {"desktop": {"value": {"style": "fade", "delay": "150ms"}}}
-            }
+            "decoration": {"animation": {"desktop": {"value": {"style": "fade", "delay": "150ms"}}}}
         },
     }
     if link:
@@ -415,21 +437,19 @@ def image(src: str, alt: str = "", link: str | None = None, **attrs: Any) -> str
 # =============================================================================
 
 
-def _divider_module(style: str = "solid", alignment: str = "center", color: str | None = None) -> dict[str, Any]:  # noqa: E501
+def _divider_module(
+    style: str = "solid", alignment: str = "center", color: str | None = None
+) -> dict[str, Any]:  # noqa: E501
     """Build divider block attributes (top-level ``divider`` + ``module``)."""
     m: dict[str, Any] = {
         "divider": {
             "decoration": {
-                "divider": {
-                    "desktop": {"value": {"style": style, "alignment": alignment}}
-                }
+                "divider": {"desktop": {"value": {"style": style, "alignment": alignment}}}
             }
         },
         "module": {
             "decoration": {
-                "spacing": {
-                    "desktop": {"value": {"margin": {"top": "1em", "bottom": "1em"}}}
-                }
+                "spacing": {"desktop": {"value": {"margin": {"top": "1em", "bottom": "1em"}}}}
             }
         },
     }
@@ -438,7 +458,9 @@ def _divider_module(style: str = "solid", alignment: str = "center", color: str 
     return m
 
 
-def divider(style: str = "solid", alignment: str = "center", color: str | None = None, **attrs: Any) -> str:  # noqa: E501
+def divider(
+    style: str = "solid", alignment: str = "center", color: str | None = None, **attrs: Any
+) -> str:  # noqa: E501
     """Create a divi/divider block."""
     m = _divider_module(style, alignment, color)
     if attrs:
@@ -451,21 +473,21 @@ def divider(style: str = "solid", alignment: str = "center", color: str | None =
 # =============================================================================
 
 
-def _blurb_module(title: str, content: str, icon: str | None = None, image: str | None = None, url: str | None = None) -> dict[str, Any]:  # noqa: E501
+def _blurb_module(
+    title: str,
+    content: str,
+    icon: str | None = None,
+    image: str | None = None,
+    url: str | None = None,
+) -> dict[str, Any]:  # noqa: E501
     """Build blurb block attributes (top-level title/content/imageIcon + module)."""
     m: dict[str, Any] = {
         "title": {
             "innerContent": {"desktop": {"value": title}},
             "decoration": {"font": {"font": {"desktop": {"value": {"headingLevel": "h4"}}}}},
         },
-        "content": {
-            "innerContent": {"desktop": {"value": content}}
-        },
-        "module": {
-            "decoration": {
-                "layout": {"desktop": {"value": {"justifyContent": "center"}}}
-            }
-        },
+        "content": {"innerContent": {"desktop": {"value": content}}},
+        "module": {"decoration": {"layout": {"desktop": {"value": {"justifyContent": "center"}}}}},
     }
     if icon:
         m["imageIcon"] = {
@@ -479,17 +501,20 @@ def _blurb_module(title: str, content: str, icon: str | None = None, image: str 
             }
         }
     if image:
-        m["imageIcon"] = {
-            "innerContent": {
-                "desktop": {"value": {"src": image, "useIcon": "off"}}
-            }
-        }
+        m["imageIcon"] = {"innerContent": {"desktop": {"value": {"src": image, "useIcon": "off"}}}}
     if url:
         m.setdefault("module", {})["link"] = {"desktop": {"value": url}}
     return m
 
 
-def blurb(title: str, content: str, icon: str | None = None, image: str | None = None, url: str | None = None, **attrs: Any) -> str:  # noqa: E501
+def blurb(
+    title: str,
+    content: str,
+    icon: str | None = None,
+    image: str | None = None,
+    url: str | None = None,
+    **attrs: Any,
+) -> str:  # noqa: E501
     """Create a divi/blurb block."""
     m = _blurb_module(title, content, icon, image, url)
     if attrs:
@@ -576,22 +601,12 @@ def _testimonials_module(items: list[dict[str, Any]]) -> dict[str, Any]:
             <div class="et_pb_testimonial_author">{author}</div>
         </div>
         """.strip()
-        slide_items.append({
-            "content": testimonial_html
-        })
+        slide_items.append({"content": testimonial_html})
 
     return {
         "slider": {
-            "advanced": {
-                "auto": "on",
-                "autoSpeed": "5000",
-                "autoIgnoreHover": "off"
-            },
-            "decoration": {
-                "animation": {
-                    "desktop": {"value": {"style": "fade", "delay": "0ms"}}
-                }
-            }
+            "advanced": {"auto": "on", "autoSpeed": "5000", "autoIgnoreHover": "off"},
+            "decoration": {"animation": {"desktop": {"value": {"style": "fade", "delay": "0ms"}}}},
         }
     }
 
@@ -615,7 +630,9 @@ def testimonials(items: list[dict[str, Any]], **attrs: Any) -> str:
         </div>
         """.strip()
         escaped_html = testimonial_html.replace('"', '\\"')
-        slide_blocks.append(f'<!-- wp:divi/slide {{"module":{{"slide":{{"innerContent":{{"desktop":{{"value":"{escaped_html}"}}}}}}}},"builderVersion":"5.9.0"}} /-->')  # noqa: E501
+        slide_blocks.append(
+            f'<!-- wp:divi/slide {{"module":{{"slide":{{"innerContent":{{"desktop":{{"value":"{escaped_html}"}}}}}}}},"builderVersion":"5.9.0"}} /-->'  # noqa: E501
+        )
 
     # Build slider opening tag manually (not self-closing)
     m_json = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
@@ -640,17 +657,10 @@ def _social_follow_module(networks: list[dict[str, Any]]) -> dict[str, Any]:
         network = net.get("network", "")
         url = net.get("url", "")
         if network and url:
-            items.append({
-                "network": network,
-                "url": url,
-                "label": network.title(),
-                "icon": {"enable": "on"}
-            })
-    return {
-        "socialFollow": {
-            "items": items
-        }
-    }
+            items.append(
+                {"network": network, "url": url, "label": network.title(), "icon": {"enable": "on"}}
+            )
+    return {"socialFollow": {"items": items}}
 
 
 def social_follow(networks: list[dict[str, Any]], **attrs: Any) -> str:
@@ -666,15 +676,15 @@ def social_follow(networks: list[dict[str, Any]], **attrs: Any) -> str:
 # =============================================================================
 
 
-def _team_member_module(name: str = "", position: str = "", content: str = "", image: str = "", social: dict[str, Any] | None = None) -> dict[str, Any]:  # noqa: E501
+def _team_member_module(
+    name: str = "",
+    position: str = "",
+    content: str = "",
+    image: str = "",
+    social: dict[str, Any] | None = None,
+) -> dict[str, Any]:  # noqa: E501
     """Build team member module attributes."""
-    m: dict[str, Any] = {
-        "teamMember": {
-            "innerContent": {
-                "desktop": {"value": content}
-            }
-        }
-    }
+    m: dict[str, Any] = {"teamMember": {"innerContent": {"desktop": {"value": content}}}}
     if name:
         m["teamMember"]["name"] = {"desktop": {"value": name}}
     if position:
@@ -692,7 +702,14 @@ def _team_member_module(name: str = "", position: str = "", content: str = "", i
     return m
 
 
-def team_member(name: str = "", position: str = "", content: str = "", image: str = "", social: dict[str, Any] | None = None, **attrs: Any) -> str:  # noqa: E501
+def team_member(
+    name: str = "",
+    position: str = "",
+    content: str = "",
+    image: str = "",
+    social: dict[str, Any] | None = None,
+    **attrs: Any,
+) -> str:  # noqa: E501
     """Create a divi/team-member block."""
     m = {"module": _team_member_module(name, position, content, image, social)}
     if attrs:
@@ -709,11 +726,7 @@ def _accordion_module() -> dict[str, Any]:
     """Build accordion module attributes."""
     return {
         "accordion": {
-            "decoration": {
-                "animation": {
-                    "desktop": {"value": {"style": "fade", "delay": "0ms"}}
-                }
-            }
+            "decoration": {"animation": {"desktop": {"value": {"style": "fade", "delay": "0ms"}}}}
         }
     }
 
@@ -730,10 +743,8 @@ def _accordion_item_module(title: str = "", content: str = "") -> dict[str, Any]
     """Build accordion item module attributes."""
     return {
         "accordionItem": {
-            "innerContent": {
-                "desktop": {"value": content}
-            },
-            "title": {"desktop": {"value": title}}
+            "innerContent": {"desktop": {"value": content}},
+            "title": {"desktop": {"value": title}},
         }
     }
 
@@ -755,11 +766,7 @@ def _tabs_module() -> dict[str, Any]:
     """Build tabs module attributes."""
     return {
         "tabs": {
-            "decoration": {
-                "animation": {
-                    "desktop": {"value": {"style": "fade", "delay": "0ms"}}
-                }
-            }
+            "decoration": {"animation": {"desktop": {"value": {"style": "fade", "delay": "0ms"}}}}
         }
     }
 
@@ -776,10 +783,8 @@ def _tab_module(title: str = "", content: str = "") -> dict[str, Any]:
     """Build tab module attributes."""
     return {
         "tab": {
-            "innerContent": {
-                "desktop": {"value": content}
-            },
-            "title": {"desktop": {"value": title}}
+            "innerContent": {"desktop": {"value": content}},
+            "title": {"desktop": {"value": title}},
         }
     }
 
@@ -797,19 +802,23 @@ def tab(title: str = "", content: str = "", **attrs: Any) -> str:
 # =============================================================================
 
 
-def _countdown_module(number: str = "", title: str = "", label: str = "", separator: str = "") -> dict[str, Any]:  # noqa: E501
+def _countdown_module(
+    number: str = "", title: str = "", label: str = "", separator: str = ""
+) -> dict[str, Any]:  # noqa: E501
     """Build countdown timer module attributes."""
     return {
         "countdownTimer": {
             "number": {"desktop": {"value": number}},
             "title": {"desktop": {"value": title}},
             "label": {"desktop": {"value": label}},
-            "separator": {"desktop": {"value": separator}}
+            "separator": {"desktop": {"value": separator}},
         }
     }
 
 
-def countdown_timer(number: str = "", title: str = "", label: str = "", separator: str = "", **attrs: Any) -> str:  # noqa: E501
+def countdown_timer(
+    number: str = "", title: str = "", label: str = "", separator: str = "", **attrs: Any
+) -> str:  # noqa: E501
     """Create a divi/countdown-timer block."""
     m = {"module": _countdown_module(number, title, label, separator)}
     if attrs:
@@ -824,11 +833,7 @@ def countdown_timer(number: str = "", title: str = "", label: str = "", separato
 
 def _gallery_module(images: list[str] | None = None) -> dict[str, Any]:
     """Build gallery module attributes."""
-    return {
-        "gallery": {
-            "images": images or []
-        }
-    }
+    return {"gallery": {"images": images or []}}
 
 
 def gallery(images: list[str] | None = None, **attrs: Any) -> str:
@@ -850,7 +855,7 @@ def _blog_module() -> dict[str, Any]:
         "blog": {
             "postsNumber": {"desktop": {"value": 10}},
             "includeCategories": {"desktop": {"value": []}},
-            "offsetNumber": {"desktop": {"value": 0}}
+            "offsetNumber": {"desktop": {"value": 0}},
         }
     }
 
@@ -870,11 +875,7 @@ def blog(**attrs: Any) -> str:
 
 def _icon_list_module(items: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Build icon list module attributes."""
-    return {
-        "iconList": {
-            "items": items or []
-        }
-    }
+    return {"iconList": {"items": items or []}}
 
 
 def icon_list(items: list[dict[str, Any]] | None = None, **attrs: Any) -> str:
@@ -898,9 +899,7 @@ def _clean_html(content: str) -> str:
     # and/or backslash-escaped quotes (\"). Decode entities and collapse any run
     # of leading backslashes before a quote so downstream attribute stripping
     # and Divi's parser see real quotes.
-    import html as _html
-
-    content = _html.unescape(content)
+    content = html.unescape(content)
     content = re.sub(r"\\+([\"'])", r"\1", content)
     content = content.replace("\u201c", '"').replace("\u201d", '"')
     content = content.replace("\u2018", "'").replace("\u2019", "'")
@@ -921,4 +920,3 @@ def _clean_html(content: str) -> str:
     # Drop any leftover standalone @url: dynamic tokens anywhere in text.
     content = content.replace("@url:", "")
     return content.strip()
-

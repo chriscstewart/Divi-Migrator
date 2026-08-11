@@ -21,7 +21,6 @@ keywords = [
     "migration",
     "avada",
     "fusion-builder",
-    "elementor",
     "wp-rest-api"
 ]
 classifiers = [
@@ -77,9 +76,11 @@ packages = ["divi_migrator"]
 
 [tool.hatch.build.targets.sdist]
 include = [
+    "/divi_migrator",
     "/README.md",
     "/LICENSE",
-    "/src",
+    "/examples",
+    "/pyproject.toml",
 ]
 
 [tool.ruff]
@@ -128,7 +129,7 @@ asyncio_mode = "auto"
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["src/divi_migrator"]
+source = ["divi_migrator"]
 omit = ["tests/*", "*/conftest.py"]
 
 [tool.coverage.report]

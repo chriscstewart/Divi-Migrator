@@ -33,6 +33,7 @@ from typing import Any
 
 try:
     import keyring  # type: ignore
+
     KEYRING_AVAILABLE = True
 except ImportError:
     KEYRING_AVAILABLE = False
@@ -244,12 +245,8 @@ class CredentialResolver:
             return False
 
         try:
-            keyring.set_password(
-                self.SERVICE_NAME, self.KEYRING_KEYS["wp_url"], creds.wp_url
-            )
-            keyring.set_password(
-                self.SERVICE_NAME, self.KEYRING_KEYS["wp_user"], creds.wp_user
-            )
+            keyring.set_password(self.SERVICE_NAME, self.KEYRING_KEYS["wp_url"], creds.wp_url)
+            keyring.set_password(self.SERVICE_NAME, self.KEYRING_KEYS["wp_user"], creds.wp_user)
             keyring.set_password(
                 self.SERVICE_NAME,
                 self.KEYRING_KEYS["wp_app_password"],
@@ -369,26 +366,15 @@ def handle_agent_request(request: MigrationRequest) -> MigrationResponse:
             )
 
             orch = create_orchestrator(config)
-            dry_run = (
-                request.options.get("dry_run", True) if request.options else True
-            )
+            dry_run = request.options.get("dry_run", True) if request.options else True
             limit = request.options.get("limit") if request.options else None
-            post_type = (
-                request.options.get("post_type", "page")
-                if request.options
-                else "page"
-            )
+            post_type = request.options.get("post_type", "page") if request.options else "page"
 
-            result = orch.migrate_post_type(
-                post_type, limit=limit, dry_run=dry_run
-            )
+            result = orch.migrate_post_type(post_type, limit=limit, dry_run=dry_run)
 
             return MigrationResponse(
                 status="ok",
-                message=(
-                    f"Migration {'dry-run' if dry_run else 'executed'} "
-                    f"for {post_type}"
-                ),
+                message=(f"Migration {'dry-run' if dry_run else 'executed'} for {post_type}"),
                 data=result,
             )
 
@@ -421,9 +407,7 @@ def main() -> None:
         sys.exit(1)
 
     # Read JSON from stdin or arg
-    request_data = (
-        json.load(sys.stdin) if sys.argv[1] == "-" else json.loads(sys.argv[1])
-    )
+    request_data = json.load(sys.stdin) if sys.argv[1] == "-" else json.loads(sys.argv[1])
 
     request = MigrationRequest(**request_data)
     response = handle_agent_request(request)

@@ -144,9 +144,7 @@ class MigrationMeta:
     source_id: int = 0
     source_title: str = ""
     source_content_hash: str = ""
-    migrated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    migrated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     divi_blocks_count: int = 0
     sections_count: int = 0
     rows_count: int = 0
@@ -167,9 +165,7 @@ class CheckpointRecord:
     content_len: int
     draft_id: int = 0
     meta: MigrationMeta = field(default_factory=MigrationMeta)
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
@@ -178,12 +174,8 @@ class CheckpointData:
 
     processed: list[CheckpointRecord] = field(default_factory=list)
     failed: list[dict[str, Any]] = field(default_factory=list)
-    started_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
-    updated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 # Audit models
@@ -200,9 +192,7 @@ class OriginalContent:
     date: str
     date_gmt: str
     content_hash: str
-    recorded_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    recorded_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
@@ -214,9 +204,7 @@ class MigrationRecord:
     status: str = "pending"  # pending, in_progress, completed, failed, rolled_back
     title: str = ""
     slug: str = ""
-    started_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: str | None = None
     error: str | None = None
     retries: int = 0
@@ -231,12 +219,8 @@ class AuditData:
     """Complete audit data structure."""
 
     version: int = 1
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
-    updated_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     original_pages: dict[int, OriginalContent] = field(default_factory=dict)
     original_posts: dict[int, OriginalContent] = field(default_factory=dict)
     migration_map: dict[str, MigrationRecord] = field(default_factory=dict)

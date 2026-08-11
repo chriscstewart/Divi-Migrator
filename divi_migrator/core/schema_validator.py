@@ -59,9 +59,7 @@ DIVI5_BLOCK_SCHEMAS = {
                                 "properties": {
                                     "desktop": {
                                         "type": "object",
-                                        "properties": {
-                                            "value": {"type": "string"}
-                                        },
+                                        "properties": {"value": {"type": "string"}},
                                     }
                                 },
                             }
@@ -175,9 +173,7 @@ class Divi5SchemaValidator:
         errors: list[str] = []
 
         # Parse blocks from content
-        block_pattern = re.compile(
-            r"<!--\s*wp:(divi/[a-z]+)\s+(\{.*?\})\s*/?-->", re.DOTALL
-        )
+        block_pattern = re.compile(r"<!--\s*wp:(divi/[a-z]+)\s+(\{.*?\})\s*/?-->", re.DOTALL)
 
         for match in block_pattern.finditer(content):
             block_type = match.group(1)

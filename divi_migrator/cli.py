@@ -80,7 +80,11 @@ def load_config(
     Falls back to old env-var only method if credentials not found.
     """
     try:
-        complete = load_credentials(config_path, Path(project_root) if project_root else None, non_interactive=non_interactive)  # noqa: E501
+        complete = load_credentials(
+            config_path,
+            Path(project_root) if project_root else None,
+            non_interactive=non_interactive,
+        )  # noqa: E501
         cfg = Config.from_complete_config(complete)
         # config.yaml is the authoritative source for non-secret tunables.
         return _overlay_non_secret_config(cfg, Path(project_root) if project_root else Path.cwd())
@@ -132,7 +136,7 @@ def callback(
         False,
         "--non-interactive",
         "-n",
-        help="Run in non-interactive mode (fail fast if credentials missing, no prompts)"
+        help="Run in non-interactive mode (fail fast if credentials missing, no prompts)",
     ),
 ) -> None:
     """Divi Migrator - Avada/Fusion Builder to Divi 5 migration tool."""
@@ -158,7 +162,9 @@ def setup(
     configuring DiviOps, and saving to config.yaml.
     """
     if get_non_interactive(ctx):
-        console.print("[red]Error:[/red] Setup requires interactive mode. Remove --non-interactive flag.")  # noqa: E501
+        console.print(
+            "[red]Error:[/red] Setup requires interactive mode. Remove --non-interactive flag."
+        )  # noqa: E501
         raise typer.Abort()
 
     cfg_path = Path(config) if config else Path.cwd() / "config.yaml"
@@ -173,6 +179,7 @@ def setup(
 
     # Save to config.yaml
     import yaml  # noqa: PLC0415
+
     config_dict = {
         "wp": complete.wp.to_config_dict(),
         "diviops": complete.diviops.to_config_dict(),
@@ -203,7 +210,9 @@ def audit_init(
 
     existing = audit.load()
     if existing.total_pages > 0 and not force:
-        console.print(f"[yellow]Audit already exists: {existing.total_pages} pages, {existing.total_posts} posts[/yellow]")  # noqa: E501
+        console.print(
+            f"[yellow]Audit already exists: {existing.total_pages} pages, {existing.total_posts} posts[/yellow]"  # noqa: E501
+        )
         if not Confirm.ask("Re-initialize?"):
             raise typer.Abort()
 
@@ -219,8 +228,12 @@ def audit_init(
         page_num = 1
         while True:
             pages = wp.get_items(
-                "page", status="any", per_page=audit_per_page, page=page_num,
-                context="edit", author=author,
+                "page",
+                status="any",
+                per_page=audit_per_page,
+                page=page_num,
+                context="edit",
+                author=author,
             )
             if not pages:
                 break
@@ -231,8 +244,12 @@ def audit_init(
         page_num = 1
         while True:
             posts = wp.get_items(
-                "post", status="any", per_page=audit_per_page, page=page_num,
-                context="edit", author=author,
+                "post",
+                status="any",
+                per_page=audit_per_page,
+                page=page_num,
+                context="edit",
+                author=author,
             )
             if not posts:
                 break
@@ -247,7 +264,9 @@ def audit_init(
 
     audit.record_originals(original_pages, original_posts)
 
-    console.print(f"[green]Audit initialized: {len(original_pages)} pages, {len(original_posts)} posts recorded[/green]")  # noqa: E501
+    console.print(
+        f"[green]Audit initialized: {len(original_pages)} pages, {len(original_posts)} posts recorded[/green]"  # noqa: E501
+    )
 
 
 @app.command()
@@ -261,6 +280,7 @@ def audit_status(
     cfg = load_config(config, non_interactive=non_interactive)
     wp = WPClient(cfg)
     from divi_migrator.core.audit import AuditManager  # noqa: PLC0415
+
     audit = AuditManager(wp, cfg)
 
     stats = audit.get_stats()
@@ -268,6 +288,7 @@ def audit_status(
 
     if format == "json":
         import json  # noqa: PLC0415
+
         console.print_json(json.dumps(stats, indent=2))
         return
 
@@ -290,7 +311,7 @@ def audit_status(
         recent = sorted(
             [(k, v) for k, v in audit_data.migration_map.items() if v.status == "completed"],
             key=lambda x: x[1].completed_at or "",
-            reverse=True
+            reverse=True,
         )[:10]
         table2 = Table()
         table2.add_column("Type:ID")
@@ -298,7 +319,9 @@ def audit_status(
         table2.add_column("Migrated ID")
         table2.add_column("Completed")
         for key, record in recent:
-            table2.add_row(key, record.title[:50], str(record.migrated_id), record.completed_at or "")  # noqa: E501
+            table2.add_row(
+                key, record.title[:50], str(record.migrated_id), record.completed_at or ""
+            )  # noqa: E501
         console.print(table2)
 
 
@@ -318,15 +341,23 @@ def audit_rollback(
     audit = AuditManager(WPClient(cfg), cfg)
 
     if original_id:
-        if not Confirm.ask(f"Rollback {post_type} #{original_id}? This deletes migrated content and restores original."):  # noqa: E501
+        if not Confirm.ask(
+            f"Rollback {post_type} #{original_id}? This deletes migrated content and restores original."  # noqa: E501
+        ):
             raise typer.Abort()
         success = audit.rollback_migration(post_type, original_id)
         console.print(f"[green]Rollback {'successful' if success else 'failed'}[/green]")
     elif all:
-        if not Confirm.ask(f"Rollback ALL {post_type} migrations? This deletes ALL migrated content and restores ALL originals."):  # noqa: E501
+        if not Confirm.ask(
+            f"Rollback ALL {post_type} migrations? This deletes ALL migrated content and restores ALL originals."  # noqa: E501
+        ):
             raise typer.Abort()
-        result = audit.bulk_rollback(post_type, WPClient(load_config(config, non_interactive=non_interactive)))  # noqa: E501
-        console.print(f"[green]Rollback complete: {result['deleted']} deleted, {result['restored']} restored[/green]")  # noqa: E501
+        result = audit.bulk_rollback(
+            post_type, WPClient(load_config(config, non_interactive=non_interactive))
+        )  # noqa: E501
+        console.print(
+            f"[green]Rollback complete: {result['deleted']} deleted, {result['restored']} restored[/green]"  # noqa: E501
+        )
         if result["errors"]:
             for err in result["errors"]:
                 console.print(f"[red]Error: {err}[/red]")
@@ -338,7 +369,9 @@ def audit_rollback(
 def audit_cleanup_ai(
     ctx: typer.Context,
     config: str | None = typer.Option(None, "--config", "-c", help="Config file path"),
-    author_id: int = typer.Option(292, "--author", help="Author ID to cleanup (default: 292 = AI-Dev-MCPs)"),  # noqa: E501
+    author_id: int = typer.Option(
+        292, "--author", help="Author ID to cleanup (default: 292 = AI-Dev-MCPs)"
+    ),  # noqa: E501
     post_type: str = typer.Option("page", "--type", "-t", help="Post type: page or post"),
     force: bool = typer.Option(False, "--force", help="Actually delete (default: dry run)"),
 ) -> None:
@@ -348,12 +381,16 @@ def audit_cleanup_ai(
     wp = WPClient(cfg)
 
     if force:
-        console.print("[yellow]This will TRASH all content by author ID. Cannot be undone.[/yellow]")  # noqa: E501
+        console.print(
+            "[yellow]This will TRASH all content by author ID. Cannot be undone.[/yellow]"
+        )  # noqa: E501
         if not Confirm.ask("Continue?"):
             raise typer.Abort()
 
     deleted = wp.bulk_delete_by_author(post_type, author_id, force=False)
-    console.print(f"[green]Cleaned up {deleted} items by author {author_id} (trashed, not deleted)[/green]")  # noqa: E501
+    console.print(
+        f"[green]Cleaned up {deleted} items by author {author_id} (trashed, not deleted)[/green]"
+    )  # noqa: E501
 
 
 @app.command()
@@ -387,7 +424,9 @@ def discover(
         table.add_column("Format", style="green")
         table.add_column("Chars", justify="right", style="yellow")
         for item in items:
-            table.add_row(str(item["id"]), item["title"], item["format"].value, str(item["content_length"]))  # noqa: E501
+            table.add_row(
+                str(item["id"]), item["title"], item["format"].value, str(item["content_length"])
+            )  # noqa: E501
         console.print(table)
 
 
@@ -405,6 +444,7 @@ def migrate(
     orch = MigrationOrchestrator(cfg)
     # Attach audit guard
     from divi_migrator.core.audit_guard import AuditGuard  # noqa: PLC0415
+
     orch.wp.audit_guard = AuditGuard(orch.audit)
 
     if not dry_run:
@@ -450,6 +490,7 @@ def rollback(
     cfg = load_config(config, non_interactive=non_interactive)
     orch = MigrationOrchestrator(cfg)
     from divi_migrator.core.audit_guard import AuditGuard  # noqa: PLC0415
+
     orch.wp.audit_guard = AuditGuard(orch.audit)
 
     console.print(f"[bold red]Rolling back ALL {post_type} migrations...[/bold red]")
@@ -457,7 +498,9 @@ def rollback(
         raise typer.Abort()
 
     result = orch.rollback_post_type(post_type)
-    console.print(f"[green]Rollback complete: {result['deleted']} deleted, {result['restored']} restored[/green]")  # noqa: E501
+    console.print(
+        f"[green]Rollback complete: {result['deleted']} deleted, {result['restored']} restored[/green]"  # noqa: E501
+    )
     if result["errors"]:
         for err in result["errors"]:
             console.print(f"[red]Error: {err}[/red]")
@@ -573,11 +616,12 @@ def preflight(
     console.print()
     console.print(f"[bold]Scanned:[/bold] {total} {post_type}s")
     if items_with_loss == 0:
-        console.print("[green]No silent content loss detected — all Avada shortcodes are covered.[/green]")  # noqa: E501
+        console.print(
+            "[green]No silent content loss detected — all Avada shortcodes are covered.[/green]"
+        )  # noqa: E501
     else:
         console.print(
-            f"[red]{items_with_loss} {post_type}(s) would lose content.[/red] "
-            f"Shortcodes at risk:"
+            f"[red]{items_with_loss} {post_type}(s) would lose content.[/red] Shortcodes at risk:"
         )
         for sc, cnt in sorted(loss_by_shortcode.items(), key=lambda x: -x[1]):
             console.print(f"  [yellow]fusion_{sc}[/yellow]: {cnt} occurrence(s)")

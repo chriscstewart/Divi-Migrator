@@ -28,9 +28,7 @@ class HTTPRequestError(RuntimeError):
 
     def __init__(self, status_code: int, method: str, url: str, detail: str = "") -> None:
         self.status_code = status_code
-        super().__init__(
-            f"HTTP {status_code} for {method} {url}: {detail}"
-        )
+        super().__init__(f"HTTP {status_code} for {method} {url}: {detail}")
 
 
 class TokenBucketRateLimiter:
@@ -109,9 +107,7 @@ class WPClient:
             total=mig.max_retries,
             backoff_factor=2,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=frozenset(
-                ["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"]
-            ),
+            allowed_methods=frozenset(["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"]),
             respect_retry_after_header=True,
             raise_on_status=False,
         )
@@ -141,7 +137,9 @@ class WPClient:
     def _apply_rate_limit_skip(self) -> None:
         """Skip rate limiting for internal requests (audit loading)."""
 
-    def get(self, endpoint: str, params: dict[str, Any] | None = None, skip_rate_limit: bool = False) -> dict[str, Any]:  # noqa: E501
+    def get(
+        self, endpoint: str, params: dict[str, Any] | None = None, skip_rate_limit: bool = False
+    ) -> dict[str, Any]:  # noqa: E501
         """GET request with retry and rate limiting."""
         if not skip_rate_limit:
             self._apply_rate_limit()
@@ -180,7 +178,9 @@ class WPClient:
                 try:
                     item_id = int(parts[1])
                     if self.audit_guard.audit.is_original(post_type, item_id):
-                        logger.warning(f"Updating original {post_type} #{item_id} - ensure this is intentional rollback")  # noqa: E501
+                        logger.warning(
+                            f"Updating original {post_type} #{item_id} - ensure this is intentional rollback"  # noqa: E501
+                        )
                 except (ValueError, IndexError):
                     pass
         return self._request("PUT", self._url(endpoint), json=json_data)
@@ -200,7 +200,9 @@ class WPClient:
                                 f"BLOCKED: force=True delete on original {post_type} #{item_id}. "
                                 f"Originals can only be trashed (force=False)."
                             )
-                        logger.warning(f"Trashing original {post_type} #{item_id} - ensure this is intentional rollback")  # noqa: E501
+                        logger.warning(
+                            f"Trashing original {post_type} #{item_id} - ensure this is intentional rollback"  # noqa: E501
+                        )
                 except (ValueError, IndexError):
                     pass
 
@@ -245,9 +247,7 @@ class WPClient:
             resp.raise_for_status()
         except requests.HTTPError as exc:
             # The adapter already exhausted its retries; report the failure.
-            raise HTTPRequestError(
-                resp.status_code, method, url, str(exc)
-            ) from exc
+            raise HTTPRequestError(resp.status_code, method, url, str(exc)) from exc
 
         try:
             return cast(dict[str, Any], resp.json())
@@ -256,7 +256,14 @@ class WPClient:
 
     # Convenience methods
     def get_items(  # noqa: PLR0913
-        self, post_type: str, page: int = 1, per_page: int = 50, status: str = "any", context: str = "view", search: str | None = None, author: int | None = None  # noqa: E501
+        self,
+        post_type: str,
+        page: int = 1,
+        per_page: int = 50,
+        status: str = "any",
+        context: str = "view",
+        search: str | None = None,
+        author: int | None = None,  # noqa: E501
     ) -> list[dict[str, Any]]:
         """Get items of a post type."""
         if post_type == "page":
@@ -295,7 +302,9 @@ class WPClient:
 
     def create_draft(self, post_type: str, title: str, content: str = "") -> dict[str, Any]:
         """Create a draft page/post."""
-        return self.post(f"{post_type}s", json_data={"title": title, "status": "draft", "content": content})  # noqa: E501
+        return self.post(
+            f"{post_type}s", json_data={"title": title, "status": "draft", "content": content}
+        )  # noqa: E501
 
     def update_meta(self, post_type: str, item_id: int, meta: dict[str, Any]) -> dict[str, Any]:
         """Update post meta."""
@@ -420,7 +429,12 @@ class DiviOpsClient:
         return self.post(f"page/update-content/{page_id}", json_data={"content": content})
 
     def update_page(
-        self, page_id: int, title: str, content: str = "", status: str = "publish", post_type: str = "page"  # noqa: E501
+        self,
+        page_id: int,
+        title: str,
+        content: str = "",
+        status: str = "publish",
+        post_type: str = "page",  # noqa: E501
     ) -> dict[str, Any]:
         """Update an existing page via DiviOps."""
         return self.post(
@@ -495,10 +509,18 @@ class DiviOpsClient:
         params = {"type": layout_type} if layout_type else None
         return self.get("library/list", params=params)
 
-    def save_library_item(self, title: str, content: str, layout_type: str, scope: str = "non_global") -> dict[str, Any]:  # noqa: E501
-        return self.post("library/save", json_data={
-            "title": title, "content": content, "layout_type": layout_type, "scope": scope
-        })
+    def save_library_item(
+        self, title: str, content: str, layout_type: str, scope: str = "non_global"
+    ) -> dict[str, Any]:  # noqa: E501
+        return self.post(
+            "library/save",
+            json_data={
+                "title": title,
+                "content": content,
+                "layout_type": layout_type,
+                "scope": scope,
+            },
+        )
 
 
 def create_clients(config: Config, audit_guard: Any = None) -> tuple[WPClient, DiviOpsClient]:

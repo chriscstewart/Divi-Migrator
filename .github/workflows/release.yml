@@ -6,7 +6,36 @@ on:
       - "v*"
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Type check
+        run: |
+          python -m mypy --strict divi_migrator
+
+      - name: Unit tests
+        run: |
+          pytest tests/unit/ -v --tb=short
+
   release:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write

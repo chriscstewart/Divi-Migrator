@@ -133,9 +133,7 @@ class DesignSystemInspector:
             # Divi 5 module presets
             divi5 = data.get("divi5_presets", {})
             for module_name, module_data in divi5.items():
-                if hasattr(
-                    presets, module_name.replace("divi/", "").replace("/", "_")
-                ):
+                if hasattr(presets, module_name.replace("divi/", "").replace("/", "_")):
                     attr = module_name.replace("divi/", "").replace("/", "_")
                     setattr(presets, attr, module_data.get("items", {}))
 
@@ -184,7 +182,9 @@ class DesignSystemInspector:
         return {}
 
 
-def fetch_design_system(config: Config, wp_client: WPClient, diviops_client: DiviOpsClient) -> DesignSystem:  # noqa: E501
+def fetch_design_system(
+    config: Config, wp_client: WPClient, diviops_client: DiviOpsClient
+) -> DesignSystem:  # noqa: E501
     """Convenience function to fetch design system."""
     inspector = DesignSystemInspector(config, wp_client, diviops_client)
     return inspector.fetch_design_system()

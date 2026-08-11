@@ -87,16 +87,18 @@ class MigrationOrchestrator:
             if "featured_media" in wp_original:
                 meta["featured_media"] = wp_original["featured_media"]
             if not original:
-                meta.update({
-                    "date": wp_original.get("date"),
-                    "date_gmt": wp_original.get("date_gmt"),
-                    "modified": wp_original.get("modified"),
-                    "modified_gmt": wp_original.get("modified_gmt"),
-                    "slug": wp_original.get("slug"),
-                    "author": wp_original.get("author"),
-                    "status": wp_original.get("status"),
-                    "featured_media": wp_original.get("featured_media"),
-                })
+                meta.update(
+                    {
+                        "date": wp_original.get("date"),
+                        "date_gmt": wp_original.get("date_gmt"),
+                        "modified": wp_original.get("modified"),
+                        "modified_gmt": wp_original.get("modified_gmt"),
+                        "slug": wp_original.get("slug"),
+                        "author": wp_original.get("author"),
+                        "status": wp_original.get("status"),
+                        "featured_media": wp_original.get("featured_media"),
+                    }
+                )
         return meta
 
     def _migrate_item(  # noqa: C901 PLR0912 PLR0915
@@ -121,8 +123,12 @@ class MigrationOrchestrator:
             migrated_id = self.audit.get_migrated_id(post_type, item_id)
             logger.info(f"  ⏭️  Already migrated (ID {migrated_id}), skipping")
             return {
-                "id": item["id"], "title": title, "status": "skipped",
-                "draft_id": migrated_id, "verification": None, "meta": None,
+                "id": item["id"],
+                "title": title,
+                "status": "skipped",
+                "draft_id": migrated_id,
+                "verification": None,
+                "meta": None,
             }
 
         # Check if in-progress (resume an interrupted run instead of
@@ -134,10 +140,11 @@ class MigrationOrchestrator:
         if record and record.status == "in_progress":
             if record.migrated_id:
                 resume_draft_id = int(record.migrated_id)
-                logger.info(f"  🔄 Resuming interrupted migration for #{item_id} (reusing draft {resume_draft_id})")  # noqa: E501
+                logger.info(
+                    f"  🔄 Resuming interrupted migration for #{item_id} (reusing draft {resume_draft_id})"  # noqa: E501
+                )
             else:
                 logger.info(f"  🔄 Resuming migration for #{item_id} (no draft yet, will create)")  # noqa: E501
-
 
         # Start tracking
         self.audit.start_migration(post_type, item_id, title, slug, content_hash(content))
@@ -162,13 +169,19 @@ class MigrationOrchestrator:
         # Schema validation BEFORE saving
         schema_valid, schema_errors = validate_divi5_blocks(divi_content)
         if not schema_valid:
-            self.audit.fail_migration(post_type, item_id, f"Schema validation failed: {schema_errors}")  # noqa: E501
+            self.audit.fail_migration(
+                post_type, item_id, f"Schema validation failed: {schema_errors}"
+            )  # noqa: E501
             raise ValueError(f"Schema validation failed: {schema_errors}")  # noqa: TRY003
 
         if dry_run:
             return {
-                "id": item["id"], "title": title, "status": "dry_run",
-                "draft_id": None, "verification": None, "meta": None,
+                "id": item["id"],
+                "title": title,
+                "status": "dry_run",
+                "draft_id": None,
+                "verification": None,
+                "meta": None,
             }
 
         # Idempotency: when NOT resuming an existing draft, trash any leftover
@@ -180,7 +193,9 @@ class MigrationOrchestrator:
         if resume_draft_id is None:
             try:
                 prior = self.wp.get_items(
-                    post_type, status="draft", per_page=5,
+                    post_type,
+                    status="draft",
+                    per_page=5,
                     search=title,
                 )
             except Exception as e:  # noqa: BLE001
@@ -249,12 +264,12 @@ class MigrationOrchestrator:
         }
         self.wp.update_meta(post_type, draft_id, meta_data)
 
-        # Restore original metadata (dates, author, categories, tags, featured image)
+        # Restore original metadata (dates, author, categories, tags, featured
+        # image). These MUST be set top-level on the publish payload (below),
+        # NOT via update_meta — WP REST ignores featured_media/categories/tags
+        # when sent under the `meta` wrapper. The single update_meta call above
+        # records the _divi_migrator provenance marker (a real custom meta key).
         original_meta = self._get_original_metadata(post_type, item_id)
-        self.wp.update_meta(post_type, draft_id, {
-            **original_meta,
-            "meta": {**original_meta.get("meta", {}), **meta_data.get("meta", {})}
-        })
 
         # Add migration category
         cat_id = self._ensure_migration_category(post_type)
@@ -262,10 +277,13 @@ class MigrationOrchestrator:
             self.wp.put(f"posts/{draft_id}", json_data={"categories": [cat_id]})
 
         # Apply original title/slug to migrated draft
-        update_result = self.wp.put(f"{post_type}s/{draft_id}", json_data={
-            "title": title,
-            "slug": slug,
-        })
+        update_result = self.wp.put(
+            f"{post_type}s/{draft_id}",
+            json_data={
+                "title": title,
+                "slug": slug,
+            },
+        )
         if isinstance(update_result, dict) and update_result.get("id"):
             logger.info("  ✅ Applied original title/slug to migrated draft")
 
@@ -305,7 +323,8 @@ class MigrationOrchestrator:
                 self.audit.mark_renamed(post_type, item_id, old_title, old_slug)
                 logger.info(
                     "  ✅ Renamed original to '%s' (slug: %s) and set to draft",
-                    old_title, old_slug,
+                    old_title,
+                    old_slug,
                 )
 
         # Mark complete in audit
@@ -334,14 +353,15 @@ class MigrationOrchestrator:
         cat_data = {
             "name": MIGRATION_CATEGORY_NAME,
             "slug": MIGRATION_CATEGORY_SLUG,
-            "description": "Content migrated via Divi-Migrator"
+            "description": "Content migrated via Divi-Migrator",
         }
         created = self.wp.post("categories", json_data=cat_data)
         if isinstance(created, dict) and "id" in created:
             self._migration_category_id = created["id"]
             logger.info(
                 "Created migration tracking category: %s (ID: %d)",
-                MIGRATION_CATEGORY_NAME, self._migration_category_id
+                MIGRATION_CATEGORY_NAME,
+                self._migration_category_id,
             )
             return self._migration_category_id
 
@@ -367,8 +387,11 @@ class MigrationOrchestrator:
             logger.info("Initializing audit - recording all original content...")
             pages, posts = self._fetch_originals()
             self.audit.record_originals(pages, posts)
-            logger.info("Audit initialized: %d pages, %d posts recorded as originals",
-                       len(pages), len(posts))
+            logger.info(
+                "Audit initialized: %d pages, %d posts recorded as originals",
+                len(pages),
+                len(posts),
+            )
 
         # Fetch design system ONCE
         logger.info("Fetching design system...")
@@ -390,17 +413,27 @@ class MigrationOrchestrator:
             title = item["title"]
             fmt = item["format"]
 
-            logger.info("[%d/%d] Migrating %s #%d: %s", i + 1, len(items), post_type, item_id, title)  # noqa: E501
+            logger.info(
+                "[%d/%d] Migrating %s #%d: %s", i + 1, len(items), post_type, item_id, title
+            )  # noqa: E501
             try:
                 result = self._migrate_item(post_type, item, design_system, dry_run)
                 results.append(result)
             except Exception as e:
                 logger.error("  ❌ FAILED: %s", e)  # noqa: TRY400
                 self.audit.fail_migration(post_type, item_id, str(e))
-                results.append({
-                    "id": item_id, "title": title, "format": fmt, "status": "failed",
-                    "error": str(e), "draft_id": None, "verification": None, "meta": None,
-                })
+                results.append(
+                    {
+                        "id": item_id,
+                        "title": title,
+                        "format": fmt,
+                        "status": "failed",
+                        "error": str(e),
+                        "draft_id": None,
+                        "verification": None,
+                        "meta": None,
+                    }
+                )
 
         # Summary
         completed = sum(1 for r in results if r.get("status") == "completed")
@@ -410,6 +443,7 @@ class MigrationOrchestrator:
 
         from rich.console import Console  # noqa: PLC0415
         from rich.table import Table  # noqa: PLC0415
+
         console = Console()
         table = Table(title=f"Migration Results - {post_type}")
         table.add_column("Status", style="cyan")
@@ -438,8 +472,12 @@ class MigrationOrchestrator:
             page_num = 1
             while True:
                 chunk = self.wp.get_items(
-                    "page", status="any", per_page=AUDIT_FETCH_PER_PAGE,
-                    page=page_num, context="edit", author=author,
+                    "page",
+                    status="any",
+                    per_page=AUDIT_FETCH_PER_PAGE,
+                    page=page_num,
+                    context="edit",
+                    author=author,
                 )
                 if not chunk:
                     break
@@ -450,8 +488,12 @@ class MigrationOrchestrator:
             page_num = 1
             while True:
                 chunk = self.wp.get_items(
-                    "post", status="any", per_page=AUDIT_FETCH_PER_PAGE,
-                    page=page_num, context="edit", author=author,
+                    "post",
+                    status="any",
+                    per_page=AUDIT_FETCH_PER_PAGE,
+                    page=page_num,
+                    context="edit",
+                    author=author,
                 )
                 if not chunk:
                     break
@@ -494,7 +536,11 @@ class MigrationOrchestrator:
                 if not isinstance(item, dict):
                     continue
                 item_id = int(item.get("id", 0))
-                title = item.get("title", {}).get("rendered", "") if isinstance(item.get("title"), dict) else ""  # noqa: E501
+                title = (
+                    item.get("title", {}).get("rendered", "")
+                    if isinstance(item.get("title"), dict)
+                    else ""
+                )  # noqa: E501
                 if self.audit.is_original(post_type, item_id):
                     continue
                 if "-old" in title:

@@ -7,7 +7,13 @@ from typing import Any
 
 from divi_migrator.converters.base import BaseConverter, ExtractedAssets
 from divi_migrator.converters.divi5_blocks import (
-    placeholder, section, section_bg_color, row_flex, column, text,
+    placeholder,
+    section,
+    section_bg_color,
+    row_flex,
+    column,
+    text,
+    RowBackground,
 )
 
 
@@ -42,25 +48,27 @@ class PlainHTMLConverter(BaseConverter):
         # If it has HTML tags, it's likely plain HTML
         return bool(re.search(r"<[a-z][^>]*>", content))
 
-    def convert(self, content: str, _source_id: int, design_system: Any = None, wp_client: Any = None) -> str:  # noqa: E501,ARG002
-            """Convert plain HTML to Divi 5 block markup."""
-            # Clean HTML
-            content = self._clean_html(content)
+    def convert(  # noqa: E501
+        self, content: str, _source_id: int, _design_system: Any = None, _wp_client: Any = None
+    ) -> str:
+        """Convert plain HTML to Divi 5 block markup."""
+        # Clean HTML
+        content = self._clean_html(content)
 
-            # Plain HTML source has no per-section background, so we emit none
-            # here (real Divi 5 omits the `background` key when there is none).
-            # The correct background shape POSTs cleanly (HTTP 201, no fatal),
-            # but DiviOps's headless renderer does not apply section/row
-            # backgrounds set via the API (verified 2026-08-08). Avada sources
-            # WITH a background do emit the canonical shape (see avada.py).
-            bg_color = None
+        # Plain HTML source has no per-section background, so we emit none
+        # here (real Divi 5 omits the `background` key when there is none).
+        # The correct background shape POSTs cleanly (HTTP 201, no fatal),
+        # but DiviOps's headless renderer does not apply section/row
+        # backgrounds set via the API (verified 2026-08-08). Avada sources
+        # WITH a background do emit the canonical shape (see avada.py).
+        bg_color = None
 
-            # Wrap in Divi 5 structure
-            inner = text(content)
-            col = column(inner=inner, layout="4_4")
-            r = row_flex(col, background_color=bg_color)
-            s = section_bg_color(bg_color, r) if bg_color else section(r)
-            return placeholder(s)
+        # Wrap in Divi 5 structure
+        inner = text(content)
+        col = column(inner=inner, layout="4_4")
+        r = row_flex(col, background=RowBackground(color=bg_color))
+        s = section_bg_color(bg_color, r) if bg_color else section(r)
+        return placeholder(s)
 
     def _clean_html(self, content: str) -> str:
         """Clean HTML content for safe embedding."""
@@ -75,12 +83,8 @@ class PlainHTMLConverter(BaseConverter):
         content = content.replace("\u00d7", "x")
 
         # Remove script/style tags
-        content = re.sub(
-            r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL | re.IGNORECASE
-        )
-        return re.sub(
-            r"<style[^>]*>.*?</style>", "", content, flags=re.DOTALL | re.IGNORECASE
-        )
+        content = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL | re.IGNORECASE)
+        return re.sub(r"<style[^>]*>.*?</style>", "", content, flags=re.DOTALL | re.IGNORECASE)
 
     def extract_assets(self, content: str) -> ExtractedAssets:
         """Extract images, buttons, forms from HTML."""

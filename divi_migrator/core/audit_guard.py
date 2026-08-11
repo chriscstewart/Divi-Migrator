@@ -26,7 +26,11 @@ class AuditGuard:
             if len(args) >= 2:  # noqa: PLR2004
                 post_type = args[0]
                 item_id = args[1]
-                if isinstance(post_type, str) and isinstance(item_id, int) and self.audit.is_original(post_type, item_id):  # noqa: E501
+                if (
+                    isinstance(post_type, str)
+                    and isinstance(item_id, int)
+                    and self.audit.is_original(post_type, item_id)
+                ):  # noqa: E501
                     raise PermissionError(  # noqa: TRY003
                         f"BLOCKED: Attempt to modify original {post_type} #{item_id}. "
                         f"Original content is protected by audit."

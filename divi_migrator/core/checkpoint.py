@@ -62,20 +62,24 @@ class CheckpointManager:
                 if isinstance(item, dict):
                     meta = item.get("meta", {})
                     if item.get("status") in ("completed", "dry_run"):
-                        checkpoint_data["processed"].append({
-                            "id": item.get("id"),
-                            "title": item.get("title"),
-                            "content_length": meta.get("source_content_hash", ""),
-                            "meta": meta,
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                        })
+                        checkpoint_data["processed"].append(
+                            {
+                                "id": item.get("id"),
+                                "title": item.get("title"),
+                                "content_length": meta.get("source_content_hash", ""),
+                                "meta": meta,
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                            }
+                        )
                     elif item.get("status") == "failed":
-                        checkpoint_data["failed"].append({
-                            "id": item.get("id"),
-                            "title": item.get("title"),
-                            "error": item.get("error"),
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                        })
+                        checkpoint_data["failed"].append(
+                            {
+                                "id": item.get("id"),
+                                "title": item.get("title"),
+                                "error": item.get("error"),
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                            }
+                        )
 
         path = self._checkpoint_path(post_type)
         tmp_path = path.with_suffix(".tmp")
@@ -91,6 +95,7 @@ class CheckpointManager:
                 if i == max_retries - 1:
                     raise
                 import time  # noqa: PLC0415
+
                 time.sleep(0.1 * (i + 1))
 
     def mark_processed(
