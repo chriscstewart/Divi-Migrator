@@ -64,7 +64,7 @@ class TestOriginalContent:
             status="publish",
             date="2024-01-01",
             date_gmt="2024-01-01",
-            content_hash="abc123"
+            content_hash="abc123",
         )
         assert content.id == 1
         assert content.title == "Test Page"
@@ -83,17 +83,38 @@ class TestMigrationRecord:
 class TestAuditManager:
     def test_record_originals(self, audit_manager):
         pages = [
-            {"id": 1, "title": {"rendered": "Page 1"}, "slug": "page-1",
-             "author": 2, "status": "publish", "date": "2024-01-01",
-             "date_gmt": "2024-01-01", "content": {"rendered": "content1"}},
-            {"id": 2, "title": {"rendered": "Page 2"}, "slug": "page-2",
-             "author": 1, "status": "draft", "date": "2024-01-02",
-             "date_gmt": "2024-01-02", "content": {"rendered": "content2"}},
+            {
+                "id": 1,
+                "title": {"rendered": "Page 1"},
+                "slug": "page-1",
+                "author": 2,
+                "status": "publish",
+                "date": "2024-01-01",
+                "date_gmt": "2024-01-01",
+                "content": {"rendered": "content1"},
+            },
+            {
+                "id": 2,
+                "title": {"rendered": "Page 2"},
+                "slug": "page-2",
+                "author": 1,
+                "status": "draft",
+                "date": "2024-01-02",
+                "date_gmt": "2024-01-02",
+                "content": {"rendered": "content2"},
+            },
         ]
         posts = [
-            {"id": 10, "title": {"rendered": "Post 1"}, "slug": "post-1",
-             "author": 2, "status": "publish", "date": "2024-01-03",
-             "date_gmt": "2024-01-03", "content": {"rendered": "content3"}},
+            {
+                "id": 10,
+                "title": {"rendered": "Post 1"},
+                "slug": "post-1",
+                "author": 2,
+                "status": "publish",
+                "date": "2024-01-03",
+                "date_gmt": "2024-01-03",
+                "content": {"rendered": "content3"},
+            },
         ]
 
         audit_manager.record_originals(pages, posts)
@@ -108,14 +129,26 @@ class TestAuditManager:
     def test_is_original(self, audit_manager):
         audit = audit_manager.load()
         audit.original_pages[1] = OriginalContent(
-            id=1, post_type="page", title="Test", slug="test",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=1,
+            post_type="page",
+            title="Test",
+            slug="test",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
         audit.original_posts[10] = OriginalContent(
-            id=10, post_type="post", title="Test", slug="test",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=10,
+            post_type="post",
+            title="Test",
+            slug="test",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
 
         assert audit_manager.is_original("page", 1) is True
@@ -125,9 +158,15 @@ class TestAuditManager:
     def test_start_migration(self, audit_manager):
         audit = audit_manager.load()
         audit.original_pages[1] = OriginalContent(
-            id=1, post_type="page", title="Test", slug="test",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=1,
+            post_type="page",
+            title="Test",
+            slug="test",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
 
         record = audit_manager.start_migration("page", 1, "Test", "test", "abc123")
@@ -142,9 +181,15 @@ class TestAuditManager:
     def test_complete_migration(self, audit_manager):
         audit = audit_manager.load()
         audit.original_pages[1] = OriginalContent(
-            id=1, post_type="page", title="Test", slug="test",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=1,
+            post_type="page",
+            title="Test",
+            slug="test",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
         audit_manager.start_migration("page", 1, "Test", "test", "abc123")
 
@@ -162,9 +207,15 @@ class TestAuditManager:
     def test_fail_migration(self, audit_manager):
         audit = audit_manager.load()
         audit.original_pages[1] = OriginalContent(
-            id=1, post_type="page", title="Test", slug="test",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=1,
+            post_type="page",
+            title="Test",
+            slug="test",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
         audit_manager.start_migration("page", 1, "Test", "test", "abc123")
 
@@ -182,9 +233,15 @@ class TestAuditManager:
     def test_is_migrated(self, audit_manager):
         audit = audit_manager.load()
         audit.original_pages[1] = OriginalContent(
-            id=1, post_type="page", title="Test", slug="test",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=1,
+            post_type="page",
+            title="Test",
+            slug="test",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
         audit_manager.start_migration("page", 1, "Test", "test", "abc123")
 
@@ -198,9 +255,15 @@ class TestAuditManager:
     def test_rollback_migration(self, audit_manager):
         audit = audit_manager.load()
         audit.original_pages[1] = OriginalContent(
-            id=1, post_type="page", title="Original", slug="original",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=1,
+            post_type="page",
+            title="Original",
+            slug="original",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
         audit_manager.start_migration("page", 1, "Test", "test", "abc123")
         audit_manager.complete_migration("page", 1, EXPECTED_MIGRATED_ID)
@@ -221,14 +284,26 @@ class TestAuditManager:
     def test_bulk_rollback(self, audit_manager):
         audit = audit_manager.load()
         audit.original_pages[1] = OriginalContent(
-            id=1, post_type="page", title="Original 1", slug="original-1",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="abc123"
+            id=1,
+            post_type="page",
+            title="Original 1",
+            slug="original-1",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="abc123",
         )
         audit.original_pages[2] = OriginalContent(
-            id=2, post_type="page", title="Original 2", slug="original-2",
-            author=2, status="publish", date="2024-01-01",
-            date_gmt="2024-01-01", content_hash="def456"
+            id=2,
+            post_type="page",
+            title="Original 2",
+            slug="original-2",
+            author=2,
+            status="publish",
+            date="2024-01-01",
+            date_gmt="2024-01-01",
+            content_hash="def456",
         )
 
         audit_manager.start_migration("page", 1, "Test 1", "test-1", "abc123")
@@ -290,4 +365,3 @@ class TestAuditGuard:
 
         result = delete_item("page", 999)
         assert result == "deleted"
-

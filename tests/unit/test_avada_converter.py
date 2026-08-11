@@ -40,9 +40,7 @@ class TestAvadaConverter:
 
     def test_extract_attr(self, converter):
         """Test attribute extraction."""
-        shortcode = (
-            '[fusion_button text="Click Me" link="https://example.com" color="red"]'
-        )
+        shortcode = '[fusion_button text="Click Me" link="https://example.com" color="red"]'
         assert converter.extract_attr(shortcode, "text") == "Click Me"
         assert converter.extract_attr(shortcode, "link") == "https://example.com"
         assert converter.extract_attr(shortcode, "color") == "red"
@@ -232,6 +230,7 @@ class TestAvadaConverter:
 
     def test_image_id_resolution(self, converter):
         """An Avada image_id (e.g. '5481|full') is resolved to the media URL."""
+
         class FakeClient:
             def get(self, endpoint: str, params: Any = None) -> dict[str, Any]:  # noqa: ARG002
                 if endpoint == "media/5481":
@@ -280,5 +279,3 @@ class TestAvadaConverter:
         assert "<li>Relationship and Intimacy Counselling</li>" in result
         # Renders inside a divi/text block
         assert "wp:divi/text" in result
-
-

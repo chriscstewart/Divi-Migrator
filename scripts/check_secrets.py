@@ -42,12 +42,28 @@ PLACEHOLDER_VALUES = {
 }
 
 SKIP_DIRS = {
-    ".git", "node_modules", "__pycache__", ".venv", "venv",
-    "audit_backups", "checkpoints", ".ruff_cache", ".mypy_cache",
+    ".git",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "audit_backups",
+    "checkpoints",
+    ".ruff_cache",
+    ".mypy_cache",
 }
 SKIP_EXT = {
-    ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".woff", ".woff2",
-    ".ttf", ".ico", ".lock", ".pyc",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".pdf",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".ico",
+    ".lock",
+    ".pyc",
 }
 
 

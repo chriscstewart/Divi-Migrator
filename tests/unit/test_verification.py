@@ -127,9 +127,7 @@ def test_verify_layout_missing_images():
         },
     }
 
-    result = engine.verify_layout(
-        diviops.get_page_layout.return_value, {"images": 2, "buttons": 0}
-    )
+    result = engine.verify_layout(diviops.get_page_layout.return_value, {"images": 2, "buttons": 0})
 
     assert result.verification_passed is False
     assert any("Images" in issue for issue in result.issues)

@@ -160,8 +160,14 @@ def orchestrator(mock_wp, mock_diviops, mock_audit, design_system, monkeypatch):
     monkeypatch.setattr(
         "divi_migrator.core.orchestrator.verify_page",
         lambda diviops, config, draft_id: VerificationResult(
-            passed=True, sections=1, rows=1, modules=1, images=1, buttons=0,
-            background_colors=[], issues=[],
+            passed=True,
+            sections=1,
+            rows=1,
+            modules=1,
+            images=1,
+            buttons=0,
+            background_colors=[],
+            issues=[],
         ),
     )
     monkeypatch.setattr(
@@ -198,8 +204,12 @@ def _create_content_calls(mock_diviops):
 class TestPostFeaturedImageAndMeta:
     def test_featured_image_carried_to_published_post(self, orchestrator, mock_wp):
         """The published post must receive the original's featured_media (top-level)."""
-        item = {"id": 500, "title": "My Test Post", "format": SourceFormat.AVADA,
-                "slug": "my-test-post"}
+        item = {
+            "id": 500,
+            "title": "My Test Post",
+            "format": SourceFormat.AVADA,
+            "slug": "my-test-post",
+        }
         orchestrator._migrate_item("post", item, orchestrator._design_system, dry_run=False)
 
         pub = _publish_put_calls(mock_wp)
@@ -209,8 +219,12 @@ class TestPostFeaturedImageAndMeta:
         )
 
     def test_categories_and_tags_preserved(self, orchestrator, mock_wp):
-        item = {"id": 500, "title": "My Test Post", "format": SourceFormat.AVADA,
-                "slug": "my-test-post"}
+        item = {
+            "id": 500,
+            "title": "My Test Post",
+            "format": SourceFormat.AVADA,
+            "slug": "my-test-post",
+        }
         orchestrator._migrate_item("post", item, orchestrator._design_system, dry_run=False)
 
         pub = _publish_put_calls(mock_wp)
@@ -218,8 +232,12 @@ class TestPostFeaturedImageAndMeta:
         assert set(pub[0]["tags"]) == {150, 18, 30}
 
     def test_original_publish_date_preserved(self, orchestrator, mock_wp):
-        item = {"id": 500, "title": "My Test Post", "format": SourceFormat.AVADA,
-                "slug": "my-test-post"}
+        item = {
+            "id": 500,
+            "title": "My Test Post",
+            "format": SourceFormat.AVADA,
+            "slug": "my-test-post",
+        }
         orchestrator._migrate_item("post", item, orchestrator._design_system, dry_run=False)
 
         pub = _publish_put_calls(mock_wp)
@@ -230,8 +248,12 @@ class TestPostFeaturedImageAndMeta:
 class TestPostSinglePass:
     def test_no_duplicate_draft_on_second_run(self, orchestrator, mock_diviops, mock_audit):
         """A second migrate of an already-completed post creates NO new draft."""
-        item = {"id": 500, "title": "My Test Post", "format": SourceFormat.AVADA,
-                "slug": "my-test-post"}
+        item = {
+            "id": 500,
+            "title": "My Test Post",
+            "format": SourceFormat.AVADA,
+            "slug": "my-test-post",
+        }
 
         # First run: completes successfully
         orchestrator._migrate_item("post", item, orchestrator._design_system, dry_run=False)
@@ -239,7 +261,9 @@ class TestPostSinglePass:
         first_create_calls = len(_create_content_calls(mock_diviops))
 
         # Second run: audit says completed -> should skip, no new draft
-        result = orchestrator._migrate_item("post", item, orchestrator._design_system, dry_run=False)
+        result = orchestrator._migrate_item(
+            "post", item, orchestrator._design_system, dry_run=False
+        )
         assert result["status"] == "skipped"
         second_create_calls = len(_create_content_calls(mock_diviops))
         assert second_create_calls == first_create_calls, "second run created a duplicate draft"
@@ -249,8 +273,12 @@ class TestPostSinglePass:
     ):
         """If a prior run left status 'in_progress' (interrupted), a re-run must
         resume the existing draft, not create a second one."""
-        item = {"id": 500, "title": "My Test Post", "format": SourceFormat.AVADA,
-                "slug": "my-test-post"}
+        item = {
+            "id": 500,
+            "title": "My Test Post",
+            "format": SourceFormat.AVADA,
+            "slug": "my-test-post",
+        }
 
         # Simulate an interrupted prior run: status stuck at in_progress,
         # a draft (88888) was already created.

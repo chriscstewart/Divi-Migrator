@@ -93,7 +93,7 @@ select = [
     "E", "F", "W", "C", "N", "UP", "B", "A", "C4", "DTZ", "T10", "T20", "ICN", "PIE", "PT", "Q", "RET", "SIM", "SLF", "TRY", "ARG", "PTH", "ERA", "PL", "NPY", "B007", "B008", "B009", "B011", "B015",
 ]
 ignore = []
-per-file-ignores = { "tests/*" = ["S101", "S106"] }
+per-file-ignores = { "tests/*" = ["S101", "S106", "ARG001", "ARG005", "SLF001", "PLR2004", "E501"], "scripts/*" = ["T201", "PTH201"] }
 
 [tool.ruff.format]
 quote-style = "double"
