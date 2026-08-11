@@ -43,6 +43,7 @@ dependencies = [
     "rich>=13.0.0",
     "typer>=0.9.0",
     "tenacity>=8.2.0",
+    "jsonschema>=4.17.0",
 ]
 
 [project.optional-dependencies]
@@ -150,4 +151,5 @@ dependencies = [
     "rich>=13.0.0",
     "typer>=0.9.0",
     "tenacity>=8.2.0",
+    "jsonschema>=4.17.0",
 ]
