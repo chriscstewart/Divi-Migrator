@@ -265,6 +265,9 @@ own script that calls the library.
 > 📚 **Maintainer reference:** the full Fusion-shortcode → Divi 5 module map
 > (including which modules render natively vs. as semantic HTML inside a text
 > block) lives in [`docs/FUSION_TO_DIVI_MAPPING.md`](docs/FUSION_TO_DIVI_MAPPING.md).
+>
+> 📋 **Changelog:** see [`CHANGELOG.md`](CHANGELOG.md) for a per-release record of
+> fixes, changes, and removals.
 
 ---
 

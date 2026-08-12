@@ -80,6 +80,7 @@ include = [
     "/divi_migrator",
     "/README.md",
     "/LICENSE",
+    "/CHANGELOG.md",
     "/examples",
     "/pyproject.toml",
 ]
