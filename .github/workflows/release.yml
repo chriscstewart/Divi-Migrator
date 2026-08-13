@@ -68,6 +68,9 @@ jobs:
         with:
           # No password needed - uses OIDC trusted publishing
           verbose: true
+          # Disable Sigstore attestation upload; it requires a matching OIDC
+          # audience and is a common cause of post-config-change publish failures.
+          attestations: false
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
