@@ -8,6 +8,33 @@ adheres to [Semantic Versioning](https://semver.org/).
 > Always run `audit-init` + `migrate --dry-run` and verify output before any
 > destructive step.
 
+## [0.1.4] - 2026-08-13
+
+### Added
+- **Offline end-to-end simulation** (`divi-migrate simulate`, also `make
+  simulate`). Boots an in-memory WordPress + DiviOps harness and runs the FULL
+  migration pipeline (convert → validate → schema check → create draft → verify
+  → publish → rename original) with **no live site**. Prints an integrity
+  scorecard (drafts created, schema-valid drafts, originals renamed to `-old`,
+  originals force-deleted = 0). This is the recommended smoke test and contributor
+  demo — exercise the code start-to-finish without touching any real content.
+- **Injectable clients on `MigrationOrchestrator`.** `wp` / `diviops` / `audit`
+  are now constructor parameters (backward-compatible), enabling offline testing
+  and agent-driven runs.
+- **`divi_migrator/testing/harness.py`** — `FakeWPClient` / `FakeDiviOpsClient`
+  that subclass the real clients and record every write for integrity assertions.
+- **Contributor on-ramp:** `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
+  GitHub issue templates (bug / feature / converter-support), a PR template,
+  `dependabot.yml`, and `scripts/setup_labels.py` to bootstrap
+  `good first issue` / `help wanted` / `converter` labels. README now has a
+  "🤝 Contributing" section.
+
+### Changed
+- The 9 previously-empty orchestrator tests are now real end-to-end tests
+  covering audit init, draft creation, resume-after-interruption, discovery
+  exclusion, dedup, rollback, bulk rollback, no-force-delete, full-pipeline
+  integrity, and dry-run safety. Unit suite is now 67 tests, all green.
+
 ## [0.1.3] - 2026-08-12
 
 ### Fixed
@@ -74,3 +101,5 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 [0.1.3]: https://github.com/chriscstewart/Divi-Migrator/releases/tag/v0.1.3
 [0.1.2]: https://github.com/chriscstewart/Divi-Migrator/releases/tag/v0.1.2
+[0.1.4]: https://github.com/chriscstewart/Divi-Migrator/releases/tag/v0.1.4
+[Unreleased]: https://github.com/chriscstewart/Divi-Migrator/compare/v0.1.4...HEAD

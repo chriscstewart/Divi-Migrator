@@ -1,0 +1,35 @@
+name: 🔌 Converter support request
+description: Request or propose support for a Fusion Builder shortcode, Elementor widget, or HTML pattern
+title: "[converter] "
+labels: ["converter", "enhancement"]
+body:
+  - type: dropdown
+    id: source
+    attributes:
+      label: Source
+      options:
+        - Avada (Fusion Builder)
+        - Elementor
+        - Plain HTML
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: token
+    attributes:
+      label: Shortcode / widget / pattern
+      description: e.g. `[fusion_accordion]`, `fusion_chart`, Elementor "Price Table"
+      placeholder: "[fusion_accordion]"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Divi 5 output
+      description: Which Divi 5 module/block should it map to? Link the Divi docs if handy.
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Minimal fixture (optional)
+      description: A small snippet we can drop into `simulate` to reproduce/verify.
+      render: shell

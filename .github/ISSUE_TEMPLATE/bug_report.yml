@@ -1,0 +1,52 @@
+name: 🐞 Bug report
+description: Report a defect in Divi Migrator (conversion, validation, or pipeline)
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This tool performs **destructive migrations** of
+        real WordPress content, so precise reproduction steps matter.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and the actual vs. expected outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: |
+        If possible, reproduce with `divi-migrate simulate` or a minimal
+        shortcode fixture — no live site required.
+      placeholder: |
+        1. Seed a page with `[fusion_...]`
+        2. Run `python -m divi_migrator.cli simulate --items 1`
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: source-format
+    attributes:
+      label: Source format
+      description: Avada / Elementor / Plain HTML / other
+      placeholder: Avada
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, divi-migrator version (`divi-migrate --version`)
+      placeholder: |
+        OS: Windows 11
+        Python: 3.11
+        divi-migrator: 0.1.3
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checklist
+      options:
+        - label: I ran `audit-init` and `migrate --dry-run` before any destructive step
+        - label: No secrets/credentials are included in this report

@@ -54,6 +54,9 @@ publish: build  ## Publish to PyPI
 
 dev-setup: install-dev pre-commit-install  ## Complete development setup
 
+simulate:  ## Run offline end-to-end simulation + integrity scorecard (no live site)
+	python -m divi_migrator.cli simulate --items 8
+
 migrate-dry-run:  ## Run migration dry-run (requires env vars)
 	divi-migrate migrate --type page --limit 5 --dry-run
 

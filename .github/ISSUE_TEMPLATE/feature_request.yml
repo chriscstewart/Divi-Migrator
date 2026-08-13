@@ -1,0 +1,34 @@
+name: ✨ Feature request
+description: Propose a new capability or improvement for Divi Migrator
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What gap or pain point does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How should it work? Include CLI/API shape if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Converter (Avada/Elementor/HTML)
+        - Orchestrator / pipeline
+        - Offline simulation / testing
+        - CLI / UX
+        - Docs
+        - Other

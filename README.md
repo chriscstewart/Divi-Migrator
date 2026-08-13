@@ -306,7 +306,28 @@ pytest tests/unit/ -v
 ruff check .
 ruff format --check .
 mypy --strict divi_migrator
+
+# Offline end-to-end simulation + integrity scorecard (no live site needed)
+python -m divi_migrator.cli simulate --items 8
+# or: make simulate
 ```
+
+### Offline simulation (`simulate`)
+
+`divi-migrate simulate` boots an in-memory WordPress + DiviOps harness and runs
+the **full** migration pipeline — convert → validate → schema check → create
+draft → verify → publish → rename original — without touching any real site. It
+then prints an integrity scorecard (drafts created, schema-valid drafts,
+originals renamed to `-old`, originals force-deleted = 0). This is the safe way
+to exercise the code start-to-finish and is the recommended smoke test for
+contributors and before any live run.
+
+The harness lives in `divi_migrator/testing/harness.py` (`FakeWPClient` /
+`FakeDiviOpsClient`). It subclasses the real clients so it is a drop-in for the
+orchestrator's injectable `wp` / `diviops` / `audit` parameters, and every
+write is recorded for assertions. The orchestrator tests
+(`tests/unit/test_orchestrator_new.py`) use it to verify migration integrity,
+resume, and rollback offline.
 
 > Integration tests against a live WordPress + DiviOps site are **not included**
 > in this release. CI runs the unit suite, ruff, and strict mypy only.
@@ -372,6 +393,29 @@ Both posts and pages are **created via the WordPress REST endpoints**
 Pages previously used DiviOps `page/create`, but that endpoint 500s on large
 payloads (shared hosting), leaving pages as empty placeholders. Routing page
 creation through WP REST fixed that. (See `core/client.py::create_content`.)
+
+---
+
+## 🤝 Contributing
+
+Divi Migrator is **open source and public** — help is welcome, whether you're a
+WordPress developer who wants a safer Avada/Elementor → Divi 5 path, or you build
+AI agents and want a well-typed migration surface to wire into.
+
+- **Read the guide:** [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup, the
+  offline `simulate` harness, converter authoring, and the tag-driven release
+  process.
+- **File an issue:** use the bug / feature / converter-support templates
+  ([Issues](https://github.com/chriscstewart/Divi-Migrator/issues)).
+- **Send a PR** against `develop` (or `main`); CI requires `ruff` +
+  `ruff format --check` + `mypy --strict` + `pytest` to pass. The PR template
+  lists the full checklist.
+- **Good starting points:** look for the `good first issue` / `help wanted`
+  labels — e.g. expanding `docs/FUSION_TO_DIVI_MAPPING.md`, improving the
+  Elementor converter, or adding golden-output snapshot tests.
+
+Security issues go through private disclosure — see
+[SECURITY.md](SECURITY.md), **not** public issues.
 
 ---
 

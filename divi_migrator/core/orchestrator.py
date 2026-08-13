@@ -35,11 +35,21 @@ def content_hash(content: str) -> str:
 class MigrationOrchestrator:
     """Orchestrates migration with immutable audit."""
 
-    def __init__(self, config: Config):
+    def __init__(
+        self,
+        config: Config,
+        wp: WPClient | None = None,
+        diviops: DiviOpsClient | None = None,
+        audit: AuditManager | None = None,
+    ):
+        # Clients are injectable so the full pipeline can be exercised offline
+        # (e.g. a fake WP/DiviOps harness for simulation/testing) without
+        # touching a live site. When omitted, the real REST clients are built
+        # from ``config`` exactly as before.
         self.config = config
-        self.wp = WPClient(config)
-        self.diviops = DiviOpsClient(self.wp)
-        self.audit = AuditManager(self.wp, config)
+        self.wp = wp if wp is not None else WPClient(config)
+        self.diviops = diviops if diviops is not None else DiviOpsClient(self.wp)
+        self.audit = audit if audit is not None else AuditManager(self.wp, config)
         self.verification = VerificationEngine(self.diviops, config)
         self._design_system: DesignSystem | None = None
         self._migration_category_id: int | None = None

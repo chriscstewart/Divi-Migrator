@@ -652,5 +652,108 @@ def version_command() -> None:
     console.print(f"divi-migrator v{__version__}")
 
 
+@app.command()
+def simulate(
+    ctx: typer.Context,  # noqa: ARG001
+    items: int = typer.Option(
+        5, "--items", "-n", help="Number of synthetic Avada pages to simulate"
+    ),
+    post_type: str = typer.Option("page", "--type", "-t", help="Post type: page or post"),
+) -> None:
+    """Offline end-to-end simulation + integrity scorecard (no live site).
+
+    Boots an in-memory WordPress + DiviOps harness, runs the FULL migration
+    pipeline (convert -> validate -> schema check -> create draft -> verify ->
+    publish -> rename original), then prints a quality/integrity scorecard.
+    This is the safe way to exercise the code start-to-finish without touching
+    any real site — useful as a smoke test and as a contributor demo.
+    """
+    from divi_migrator.core.audit import AuditManager  # noqa: PLC0415
+    from divi_migrator.core.schema_validator import validate_divi5_blocks  # noqa: PLC0415
+    from divi_migrator.testing.harness import AVADA_FIXTURE, build_harness  # noqa: PLC0415
+
+    console.print("[bold]Divi-Migrator offline simulation[/bold]")
+    console.print(f"Simulating {items} synthetic Avada {post_type}s...\n")
+
+    originals: list[dict[str, Any]] = [
+        {
+            "id": 100 + i,
+            "title": f"Sample Page {i}",
+            "slug": f"sample-page-{i}",
+            "content": AVADA_FIXTURE,
+            "author": 1 if i % 2 == 0 else 2,
+        }
+        for i in range(items)
+    ]
+    wp, diviops, cfg = build_harness(originals)
+    audit = AuditManager(wp, cfg)
+    orch = MigrationOrchestrator(cfg, wp=wp, diviops=diviops, audit=audit)
+
+    # Record originals (mirrors `audit-init`).
+    pages = [wp.get_item(post_type, int(o["id"])) for o in originals]
+    posts: list[dict[str, Any]] = []
+    audit.record_originals(pages, posts)
+
+    # Run the full pipeline with writes ENABLED (offline).
+    result = orch.migrate_post_type(post_type, limit=items, dry_run=False)
+    results = result.get("results", [])
+
+    # --- Scorecard ---
+    completed = [r for r in results if r.get("status") == "completed"]
+    failed = [r for r in results if r.get("status") == "failed"]
+
+    # Integrity checks.
+    drafts = [
+        it for it in wp.store.items.values()
+        if it.get("meta", {}).get("_divi_migrator")
+    ]
+    originals_renamed = sum(
+        1 for i in originals
+        if wp.store.items[int(i["id"])]["slug"].endswith("-old")
+    )
+    force_deletes = sum(
+        1 for w in wp.writes if w["method"] == "DELETE" and w["payload"].get("force") is True
+    )
+    schema_valid_drafts = 0
+    for d in drafts:
+        content = d.get("content", {}).get("rendered", "")
+        ok, _ = validate_divi5_blocks(content)
+        if ok:
+            schema_valid_drafts += 1
+
+    table = Table(title="Simulation Integrity Scorecard")
+    table.add_column("Check", style="cyan")
+    table.add_column("Result", style="green")
+    table.add_row("Items simulated", str(items))
+    table.add_row("Migration completed", str(len(completed)))
+    table.add_row("Migration failed", str(len(failed)))
+    table.add_row("Drafts created (provenance)", str(len(drafts)))
+    table.add_row("Schema-valid drafts", f"{schema_valid_drafts}/{len(drafts)}")
+    table.add_row("Originals renamed to -old", f"{originals_renamed}/{items}")
+    table.add_row("Originals force-deleted", str(force_deletes))
+    console.print(table)
+
+    # Verdict.
+    integrity_ok = (
+        len(completed) == items
+        and len(drafts) == items
+        and originals_renamed == items
+        and force_deletes == 0
+        and schema_valid_drafts == len(drafts)
+    )
+    if integrity_ok:
+        msg = (
+            "\n[green bold]✅ SIMULATION PASSED — pipeline coherent and "
+            "integrity intact.[/green bold]"
+        )
+        console.print(msg)
+    else:
+        msg = (
+            "\n[red bold]❌ SIMULATION FAILED — see scorecard above.[/red bold]"
+        )
+        console.print(msg)
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
