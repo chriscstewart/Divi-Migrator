@@ -7,6 +7,7 @@ Run once (requires the GitHub CLI authenticated with write access):
 
 Idempotent: existing labels are updated, missing ones are created.
 """
+
 from __future__ import annotations
 
 import json
@@ -53,16 +54,36 @@ def main() -> None:
 
     for name, (color, desc) in LABELS.items():
         if name in existing:
-            run([
-                "gh", "label", "edit", name, "--repo", REPO,
-                "--color", color, "--description", desc,
-            ])
+            run(
+                [
+                    "gh",
+                    "label",
+                    "edit",
+                    name,
+                    "--repo",
+                    REPO,
+                    "--color",
+                    color,
+                    "--description",
+                    desc,
+                ]
+            )
             print(f"updated: {name}")
         else:
-            run([
-                "gh", "label", "create", name, "--repo", REPO,
-                "--color", color, "--description", desc,
-            ])
+            run(
+                [
+                    "gh",
+                    "label",
+                    "create",
+                    name,
+                    "--repo",
+                    REPO,
+                    "--color",
+                    color,
+                    "--description",
+                    desc,
+                ]
+            )
             print(f"created: {name}")
 
     print(f"\nDone. Labels configured on {REPO}.")

@@ -108,15 +108,23 @@ class FakeWPClient(WPClient):
         self.rate_calls += 1
 
     # --- seeding helpers ---
-    def seed(self, original_id: int, title: str, content: str, slug: str | None = None,
-             author: int = 1) -> None:
+    def seed(
+        self, original_id: int, title: str, content: str, slug: str | None = None, author: int = 1
+    ) -> None:
         slug = slug or title.lower().replace(" ", "-")
         self.store.items[original_id] = _wrap_wp_item(original_id, title, slug, content, author)
 
     # --- read methods used by the orchestrator ---
-    def get_items(self, post_type: str, page: int = 1, per_page: int = 50,
-                  status: str = "any", context: str = "view", search: str | None = None,
-                  author: int | None = None) -> list[dict[str, Any]]:
+    def get_items(
+        self,
+        post_type: str,
+        page: int = 1,
+        per_page: int = 50,
+        status: str = "any",
+        context: str = "view",
+        search: str | None = None,
+        author: int | None = None,
+    ) -> list[dict[str, Any]]:
         items = list(self.store.items.values())
         if author is not None:
             items = [i for i in items if i.get("author") == author]
@@ -124,7 +132,8 @@ class FakeWPClient(WPClient):
             items = [i for i in items if i.get("status") == status]
         if search:
             items = [
-                i for i in items
+                i
+                for i in items
                 if search.lower() in (i.get("title", {}) or {}).get("rendered", "").lower()
                 or search.lower() in (i.get("slug") or "").lower()
             ]
@@ -137,8 +146,9 @@ class FakeWPClient(WPClient):
         # Shallow copy so callers can't mutate the stored original in place.
         return dict(item)
 
-    def get(self, endpoint: str, params: dict[str, Any] | None = None,
-            skip_rate_limit: bool = False) -> Any:
+    def get(
+        self, endpoint: str, params: dict[str, Any] | None = None, skip_rate_limit: bool = False
+    ) -> Any:
         # audit post lookup / settings / design-system fallbacks
         if "wp/v2/settings" in endpoint:
             return {"page_on_front": None}
@@ -150,8 +160,13 @@ class FakeWPClient(WPClient):
     def _record(self, method: str, endpoint: str, payload: Any) -> None:
         self.writes.append({"method": method, "endpoint": endpoint, "payload": payload})
 
-    def post(self, endpoint: str, json_data: dict[str, Any] | None = None,
-             params: dict[str, Any] | None = None, skip_rate_limit: bool = False) -> dict[str, Any]:
+    def post(
+        self,
+        endpoint: str,
+        json_data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        skip_rate_limit: bool = False,
+    ) -> dict[str, Any]:
         self._record("POST", endpoint, json_data)
         # category creation
         if endpoint == "categories":
@@ -245,8 +260,12 @@ class FakeDiviOpsClient(DiviOpsClient):
             return {"ok": True}
         return {"ok": True, "data": {}}
 
-    def post(self, endpoint: str, json_data: dict[str, Any] | None = None,
-             params: dict[str, Any] | None = None) -> dict[str, Any]:
+    def post(
+        self,
+        endpoint: str,
+        json_data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         self._record("POST", endpoint, json_data)
         if endpoint == "validate/blocks":
             content = (json_data or {}).get("content", "")
@@ -259,11 +278,13 @@ class FakeDiviOpsClient(DiviOpsClient):
             return {"ok": True}
         return {"ok": True}
 
-    def create_content(self, title: str, content: str = "", status: str = "draft",
-                       post_type: str = "page") -> dict[str, Any]:
+    def create_content(
+        self, title: str, content: str = "", status: str = "draft", post_type: str = "page"
+    ) -> dict[str, Any]:
         # Delegate creation to the WP store (mirrors real client routing WP REST).
-        created = self.wp.post(f"{post_type}s", json_data={
-            "title": title, "content": content, "status": status})
+        created = self.wp.post(
+            f"{post_type}s", json_data={"title": title, "content": content, "status": status}
+        )
         page_id = created.get("id")
         return {"ok": True, "id": page_id, "data": {"page_id": page_id}}
 
@@ -283,6 +304,7 @@ class FakeDiviOpsClient(DiviOpsClient):
     def _validate_blocks(self, content: str) -> dict[str, Any]:
         # Reuse the real schema validator so generated markup is checked for real.
         from divi_migrator.core.schema_validator import validate_divi5_blocks
+
         ok, errors = validate_divi5_blocks(content)
         return {"ok": ok, "errors": errors}
 
@@ -293,13 +315,23 @@ class FakeDiviOpsClient(DiviOpsClient):
             "ok": True,
             "data": {
                 "blocks": [
-                    {"block_name": "divi/section", "attributes": {},
-                     "inner_blocks": [
-                         {"block_name": "divi/row", "attributes": {},
-                          "inner_blocks": [
-                              {"block_name": "divi/text", "attributes": {}, "inner_blocks": []}
-                          ]}
-                     ]}
+                    {
+                        "block_name": "divi/section",
+                        "attributes": {},
+                        "inner_blocks": [
+                            {
+                                "block_name": "divi/row",
+                                "attributes": {},
+                                "inner_blocks": [
+                                    {
+                                        "block_name": "divi/text",
+                                        "attributes": {},
+                                        "inner_blocks": [],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
                 ]
             },
         }

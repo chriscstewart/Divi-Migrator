@@ -20,10 +20,20 @@ PAGE_SLUGS = ["about-us", "services"]
 @pytest.fixture
 def harness():
     originals = [
-        {"id": PAGE_IDS[0], "title": PAGE_TITLES[0], "slug": PAGE_SLUGS[0],
-         "content": AVADA_FIXTURE, "author": 1},
-        {"id": PAGE_IDS[1], "title": PAGE_TITLES[1], "slug": PAGE_SLUGS[1],
-         "content": AVADA_FIXTURE, "author": 2},
+        {
+            "id": PAGE_IDS[0],
+            "title": PAGE_TITLES[0],
+            "slug": PAGE_SLUGS[0],
+            "content": AVADA_FIXTURE,
+            "author": 1,
+        },
+        {
+            "id": PAGE_IDS[1],
+            "title": PAGE_TITLES[1],
+            "slug": PAGE_SLUGS[1],
+            "content": AVADA_FIXTURE,
+            "author": 2,
+        },
     ]
     wp, diviops, cfg = build_harness(originals)
     audit = AuditManager(wp, cfg)
@@ -83,8 +93,9 @@ def test_resume_migration_works(harness) -> None:
     # in_progress with a migrated_id set and the original NOT yet renamed.
     # We model that by creating the draft directly, then recording the
     # in_progress state via the audit (as a crash would have left it).
-    created = harness["diviops"].create_content(PAGE_TITLES[0], "<!-- wp:divi/placeholder -->",
-                                                status="draft", post_type="page")
+    created = harness["diviops"].create_content(
+        PAGE_TITLES[0], "<!-- wp:divi/placeholder -->", status="draft", post_type="page"
+    )
     draft1 = created["id"]
     harness["audit"].start_migration("page", PAGE_IDS[0], PAGE_TITLES[0], PAGE_SLUGS[0], "abc123")
     rec = harness["audit"].get_migration_status("page", PAGE_IDS[0])
@@ -93,15 +104,19 @@ def test_resume_migration_works(harness) -> None:
     harness["audit"].save()
 
     # Resume the migration.
-    orch2 = MigrationOrchestrator(harness["cfg"], wp=harness["wp"],
-                                  diviops=harness["diviops"], audit=harness["audit"])
+    orch2 = MigrationOrchestrator(
+        harness["cfg"], wp=harness["wp"], diviops=harness["diviops"], audit=harness["audit"]
+    )
     r2 = orch2.migrate_post_type("page", limit=1, dry_run=False)
     draft2 = r2["results"][0]["draft_id"]
     # Resume must reuse the existing draft, not mint a second one.
     assert draft2 == draft1
     # Still exactly one published draft carrying the source id.
-    drafts = [i for i in harness["wp"].store.items.values()
-              if i.get("meta", {}).get("_divi_migrator", {}).get("source_id") == PAGE_IDS[0]]
+    drafts = [
+        i
+        for i in harness["wp"].store.items.values()
+        if i.get("meta", {}).get("_divi_migrator", {}).get("source_id") == PAGE_IDS[0]
+    ]
     assert len(drafts) == 1
 
 
@@ -110,6 +125,7 @@ def test_discovery_excludes_originals_and_migrated(harness) -> None:
     # Before migration: both originals discoverable.
     disc = harness["orch"].audit  # noqa: F841
     from divi_migrator.core.discovery import discover_migratable_items
+
     items = discover_migratable_items(harness["wp"], harness["audit"], "page")
     assert len(items) == 2
 
@@ -129,6 +145,7 @@ def test_duplicate_detection_uses_audit(harness) -> None:
     assert len(completed) == 2
     # A re-run (no limit) finds nothing left to migrate.
     from divi_migrator.core.discovery import discover_migratable_items
+
     items = discover_migratable_items(harness["wp"], harness["audit"], "page")
     assert items == []
 
@@ -148,8 +165,11 @@ def test_rollback_restores_original_exactly(harness) -> None:
     assert original["slug"] == original_slug
     assert original["status"] == "publish"
     # Migrated draft removed.
-    drafts = [i for i in harness["wp"].store.items.values()
-              if i.get("meta", {}).get("_divi_migrator", {}).get("source_id") == PAGE_IDS[0]]
+    drafts = [
+        i
+        for i in harness["wp"].store.items.values()
+        if i.get("meta", {}).get("_divi_migrator", {}).get("source_id") == PAGE_IDS[0]
+    ]
     assert drafts == []
     # Audit record rolled back.
     rec = harness["audit"].get_migration_status("page", PAGE_IDS[0])
@@ -163,8 +183,9 @@ def test_bulk_rollback_removes_all_migrated(harness) -> None:
     assert result["deleted"] == 2
     assert result["restored"] == 2
     # No migrated drafts remain.
-    drafts = [i for i in harness["wp"].store.items.values()
-              if i.get("meta", {}).get("_divi_migrator")]
+    drafts = [
+        i for i in harness["wp"].store.items.values() if i.get("meta", {}).get("_divi_migrator")
+    ]
     assert drafts == []
 
 
@@ -199,8 +220,16 @@ def test_full_pipeline_integrity_scorecard(harness) -> None:
         assert meta["divi_blocks_count"] >= 1
         assert meta["sections_count"] >= 1
     # Exactly 2 originals, 2 drafts, 0 originals destroyed.
-    assert len([i for i in harness["wp"].store.items.values()
-                 if i.get("meta", {}).get("_divi_migrator")]) == 2
+    assert (
+        len(
+            [
+                i
+                for i in harness["wp"].store.items.values()
+                if i.get("meta", {}).get("_divi_migrator")
+            ]
+        )
+        == 2
+    )
 
 
 def test_dry_run_writes_nothing(harness) -> None:
@@ -218,5 +247,6 @@ def test_dry_run_writes_nothing(harness) -> None:
         assert harness["wp"].store.items[iid]["status"] == before_statuses[iid]
         assert not harness["wp"].store.items[iid]["title"]["rendered"].endswith("-old")
     # No provenance meta assigned to any item (nothing was migrated).
-    assert not any(i.get("meta", {}).get("_divi_migrator")
-                   for i in harness["wp"].store.items.values())
+    assert not any(
+        i.get("meta", {}).get("_divi_migrator") for i in harness["wp"].store.items.values()
+    )

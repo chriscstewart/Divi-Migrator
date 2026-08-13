@@ -703,13 +703,9 @@ def simulate(
     failed = [r for r in results if r.get("status") == "failed"]
 
     # Integrity checks.
-    drafts = [
-        it for it in wp.store.items.values()
-        if it.get("meta", {}).get("_divi_migrator")
-    ]
+    drafts = [it for it in wp.store.items.values() if it.get("meta", {}).get("_divi_migrator")]
     originals_renamed = sum(
-        1 for i in originals
-        if wp.store.items[int(i["id"])]["slug"].endswith("-old")
+        1 for i in originals if wp.store.items[int(i["id"])]["slug"].endswith("-old")
     )
     force_deletes = sum(
         1 for w in wp.writes if w["method"] == "DELETE" and w["payload"].get("force") is True
@@ -748,9 +744,7 @@ def simulate(
         )
         console.print(msg)
     else:
-        msg = (
-            "\n[red bold]❌ SIMULATION FAILED — see scorecard above.[/red bold]"
-        )
+        msg = "\n[red bold]❌ SIMULATION FAILED — see scorecard above.[/red bold]"
         console.print(msg)
         raise typer.Exit(code=1)
 
