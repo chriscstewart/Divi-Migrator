@@ -63,13 +63,11 @@ jobs:
           pip install twine
           twine check dist/*
 
-      - name: Publish to PyPI (OIDC Trusted Publishing)
+      - name: Publish to PyPI (API token)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # No password needed - uses OIDC trusted publishing
+          password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
-          # Disable Sigstore attestation upload; it requires a matching OIDC
-          # audience and is a common cause of post-config-change publish failures.
           attestations: false
 
       - name: Create GitHub Release
