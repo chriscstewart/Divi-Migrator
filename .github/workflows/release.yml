@@ -63,12 +63,16 @@ jobs:
           pip install twine
           twine check dist/*
 
-      - name: Publish to PyPI (API token)
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI }}
-          verbose: true
-          attestations: false
+      - name: Publish to PyPI (API token via twine)
+        env:
+          PYPI_SECRET: ${{ secrets.PYPI }}
+        run: |
+          pip install twine
+          # Trim whitespace/newlines from the secret (GitHub stores secrets
+          # verbatim; a trailing newline breaks PyPI auth).
+          TWINE_PASSWORD="$(echo -n "${PYPI_SECRET}" | tr -d '[:space:]')" \
+          TWINE_USERNAME="__token__" \
+          twine upload --verbose dist/*
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
