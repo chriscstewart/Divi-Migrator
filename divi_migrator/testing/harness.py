@@ -115,7 +115,7 @@ class FakeWPClient(WPClient):
         self.store.items[original_id] = _wrap_wp_item(original_id, title, slug, content, author)
 
     # --- read methods used by the orchestrator ---
-    def get_items(
+    def get_items(  # noqa: PLR0917
         self,
         post_type: str,
         page: int = 1,

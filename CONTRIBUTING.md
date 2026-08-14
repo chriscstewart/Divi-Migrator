@@ -84,6 +84,7 @@ If `make` isn't available, run the underlying commands directly (see
 ```python
 from divi_migrator.converters.base import BaseConverter
 
+
 class MyFormatConverter(BaseConverter):
     format_name = "my_format"
 
@@ -95,8 +96,7 @@ class MyFormatConverter(BaseConverter):
         # for a safe fallback, or build native blocks for full fidelity.
         ...
 
-    def extract_assets(self, content: str) -> ExtractedAssets:
-        ...
+    def extract_assets(self, content: str) -> ExtractedAssets: ...
 ```
 
 Then register it and add a fixture + a `simulate`-style test. See

@@ -255,7 +255,7 @@ class WPClient:
             return {"ok": True, "data": resp.text, "status": resp.status_code}
 
     # Convenience methods
-    def get_items(  # noqa: PLR0913
+    def get_items(  # noqa: PLR0913, PLR0917
         self,
         post_type: str,
         page: int = 1,
