@@ -1,6 +1,8 @@
 # divi-migrator
 
-> **Migrate WordPress Avada / Plain HTML / Others? → Divi 5 Theme Framework. Vibe Coded (be warned!), built for AI-assisted workflows.**
+> **Migrate WordPress Avada / Plain HTML / Others? → Divi 5 Theme Framework.
+> CLI + REST that converts Avada Fusion content into Divi 5 blocks, with audit trail + rollback. Built for AI agents and developers.
+> Vibe Coded (be warned!), built for AI-assisted workflows.**
 
 [![PyPI](https://img.shields.io/pypi/v/divi-migrator)](https://pypi.org/project/divi-migrator/)
 [![Python](https://img.shields.io/pypi/pyversions/divi-migrator)](https://pypi.org/project/divi-migrator/)
